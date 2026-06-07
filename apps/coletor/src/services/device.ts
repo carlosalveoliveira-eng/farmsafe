@@ -11,3 +11,7 @@ export function obterDeviceSecret() {
 export function limparDeviceSecret() {
   localStorage.removeItem(DEVICE_SECRET_KEY)
 }
+
+export function removerDeviceSecret() {
+  localStorage.removeItem('device_secret')
+}

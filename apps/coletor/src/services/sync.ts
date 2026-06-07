@@ -1,5 +1,5 @@
 import { db } from '../database/db'
-import { obterDeviceSecret } from './device'
+import { obterDeviceSecret, removerDeviceSecret } from './device'
 import { supabase } from './supabase'
 
 type SyncResponse = {
@@ -7,6 +7,30 @@ type SyncResponse = {
   status?: 'inserted' | 'already_exists'
   erro?: string
   id?: string
+}
+
+function deveDesativarDispositivo(mensagem: string) {
+  const texto = mensagem.toLowerCase()
+
+  return (
+    texto.includes('dispositivo') ||
+    texto.includes('inativo') ||
+    texto.includes('device') ||
+    texto.includes('não autorizado') ||
+    texto.includes('nao autorizado') ||
+    texto.includes('invalid')
+  )
+}
+
+async function desconectarDispositivo(mensagem: string) {
+  removerDeviceSecret()
+
+  alert(
+    mensagem ||
+      'Este dispositivo foi desativado pela gestão. Faça uma nova ativação.'
+  )
+
+  window.location.reload()
 }
 
 export async function sincronizarRegistros() {
@@ -42,8 +66,8 @@ export async function sincronizarRegistros() {
       const { data, error } = await supabase.rpc('sync_abastecimento', {
         p_device_secret: deviceSecret,
         p_client_uuid: registro.client_uuid,
-        p_cocho_id: '00000000-0000-0000-0000-000000000001',
-        p_lote_id: null,
+        p_cocho_id: registro.cocho_id,
+        p_lote_id: registro.lote_id ?? null,
         p_tipo_abastecimento: registro.tipo_abastecimento,
         p_quantidade_kg: registro.quantidade_kg ?? null,
         p_observacao: registro.observacao ?? null,
@@ -59,6 +83,13 @@ export async function sincronizarRegistros() {
           tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
         })
 
+        if (deveDesativarDispositivo(error.message)) {
+          await desconectarDispositivo(
+            'Este dispositivo foi desativado ou não está autorizado. Faça uma nova ativação.'
+          )
+          return { enviados, falhas: falhas + 1, total: pendentes.length }
+        }
+
         falhas++
         continue
       }
@@ -66,11 +97,20 @@ export async function sincronizarRegistros() {
       const resposta = data as SyncResponse
 
       if (!resposta.ok) {
+        const mensagem = resposta.erro ?? 'Erro desconhecido'
+
         await db.abastecimentos.update(registro.id, {
           status_sync: 'erro',
-          erro_sync: resposta.erro ?? 'Erro desconhecido',
+          erro_sync: mensagem,
           tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
         })
+
+        if (deveDesativarDispositivo(mensagem)) {
+          await desconectarDispositivo(
+            'Este dispositivo foi desativado pela gestão. Faça uma nova ativação.'
+          )
+          return { enviados, falhas: falhas + 1, total: pendentes.length }
+        }
 
         falhas++
         continue
@@ -84,11 +124,20 @@ export async function sincronizarRegistros() {
 
       enviados++
     } catch (err) {
+      const mensagem = err instanceof Error ? err.message : 'Erro inesperado'
+
       await db.abastecimentos.update(registro.id, {
         status_sync: 'erro',
-        erro_sync: err instanceof Error ? err.message : 'Erro inesperado',
+        erro_sync: mensagem,
         tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
       })
+
+      if (deveDesativarDispositivo(mensagem)) {
+        await desconectarDispositivo(
+          'Este dispositivo foi desativado ou perdeu autorização. Faça uma nova ativação.'
+        )
+        return { enviados, falhas: falhas + 1, total: pendentes.length }
+      }
 
       falhas++
     }

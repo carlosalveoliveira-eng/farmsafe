@@ -65,8 +65,8 @@ export default function App() {
           <Route path="cochos" element={<CochosPage />} />
           <Route path="dispositivos" element={<DispositivosPage />} />
           <Route path="fazendas" element={<FazendasPage />} />
-          <Route path="mapa" element={<MapaOperacionalPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="mapa-operacional" element={<MapaOperacionalPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

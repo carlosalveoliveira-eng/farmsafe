@@ -12,6 +12,7 @@ import {
 import { supabase, type Cocho, type Fazenda, type Lote, type Retiro } from '../services/supabase'
 import PageHeader from '../components/PageHeader'
 import QRCodeCard from '../components/QRCodeCard'
+import { getEmpresaUsuario } from '../services/auth'
 
 type FormCocho = {
   id?: string
@@ -152,10 +153,19 @@ export default function CochosPage() {
     }
 
     setSalvando(true)
+    
+    const usuario = await getEmpresaUsuario()
+    const empresa = usuario.empresa as any
+
+    if (!empresa?.id) {
+      alert('Empresa não encontrada.')
+      return
+    }
 
     const payload = {
       nome: form.nome.trim(),
       codigo_qr: form.codigo_qr.trim().toUpperCase(),
+      empresa_id: empresa.id,
       fazenda_id: form.fazenda_id,
       retiro_id: form.retiro_id || null,
       lote_id: form.lote_id || null,
