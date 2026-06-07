@@ -1,4 +1,4 @@
-import { getEmpresaUsuario } from '../services/Auth'
+import { getEmpresaUsuario } from '../services/auth'
 import { useEffect, useState } from 'react'
 import {
   Building2,
