@@ -39,7 +39,7 @@ export class FarmsafeDB extends Dexie {
   constructor() {
     super('farmsafe-db')
 
-    this.version(2).stores({
+    this.version(3).stores({
       abastecimentos:
         '++id, client_uuid, sincronizado, status_sync, registrado_em',
     })

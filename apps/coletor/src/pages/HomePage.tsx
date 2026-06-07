@@ -32,7 +32,7 @@ export function HomePage({
   className={`font-medium ${
     online
       ? 'text-emerald-400'
-      : 'text-amber-400'
+      : 'text-green-400'
   }`}
 >
   {online
@@ -41,7 +41,7 @@ export function HomePage({
 </p>
           </div>
 
-          <CloudOff className="w-6 h-6 text-amber-400" />
+          <CloudOff className="w-6 h-6 text-green-400" />
         </div>
 
         <button

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { db } from '../database/db'
 
@@ -16,14 +16,48 @@ export function RegistroPage({
   const [tipo, setTipo] = useState('sal_mineral')
   const [quantidade, setQuantidade] = useState('')
   const [observacao, setObservacao] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [gpsStatus, setGpsStatus] = useState('Buscando localização...')
+
+  useEffect(() => {
+  if (!navigator.geolocation) {
+    setGpsStatus('GPS não disponível neste dispositivo.')
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      setLatitude(position.coords.latitude)
+      setLongitude(position.coords.longitude)
+      setGpsStatus('Localização capturada.')
+    },
+    () => {
+      setGpsStatus('Não foi possível capturar a localização.')
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 30000,
+    }
+  )
+}, [])
 
   async function salvarRegistro() {
+
+    console.log('GPS antes de salvar:', {
+      latitude,
+      longitude,
+    })
+
     await db.abastecimentos.add({
       client_uuid: crypto.randomUUID(),
       cocho_id: codigoQr,
       tipo_abastecimento: tipo,
       quantidade_kg: quantidade ? Number(quantidade) : null,
       observacao: observacao || null,
+      latitude,
+      longitude,
       registrado_em: new Date().toISOString(),
       sincronizado: false,
       status_sync: 'pendente',
@@ -96,6 +130,17 @@ export function RegistroPage({
               className="min-h-24 rounded-xl bg-slate-950 border border-slate-700 p-4 outline-none resize-none"
             />
           </label>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+          <p className="text-sm text-slate-400">GPS</p>
+          <p className="font-medium">{gpsStatus}</p>
+
+          {latitude && longitude && (
+            <p className="text-xs text-slate-500 mt-1">
+              {latitude.toFixed(6)}, {longitude.toFixed(6)}
+            </p>
+          )}
         </div>
 
         <button

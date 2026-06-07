@@ -108,7 +108,7 @@ export function ScannerPage({ onClose, onScanSuccess }: ScannerPageProps) {
         </div>
 
         {erro && (
-          <div className="bg-amber-950 border border-amber-800 rounded-2xl p-4 text-amber-200 text-sm">
+          <div className="bg-green-950 border border-green-800 rounded-2xl p-4 text-green-200 text-sm">
             {erro}
           </div>
         )}

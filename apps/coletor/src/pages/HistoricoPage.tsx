@@ -62,7 +62,7 @@ export function HistoricoPage({
                   className={`text-xs px-2 py-1 rounded-full ${
                     registro.sincronizado
                       ? 'bg-emerald-950 text-emerald-300'
-                      : 'bg-amber-950 text-amber-300'
+                      : 'bg-green-950 text-green-300'
                   }`}
                 >
                   {registro.sincronizado

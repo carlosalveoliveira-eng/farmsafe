@@ -34,6 +34,11 @@ export async function sincronizarRegistros() {
         erro_sync: null,
       })
 
+      console.log('Enviando GPS para Supabase:', {
+        latitude: registro.latitude,
+        longitude: registro.longitude,
+      })
+
       const { data, error } = await supabase.rpc('sync_abastecimento', {
         p_device_secret: deviceSecret,
         p_client_uuid: registro.client_uuid,
