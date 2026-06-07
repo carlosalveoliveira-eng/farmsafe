@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: #0e0f0b;
+    color: #f0ead8;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar estilizada */
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: #0e0f0b; }
+  ::-webkit-scrollbar-thumb  { background: #2a2d1f; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #d4a843; }
+}
+
+@layer components {
+  /* Tabela padrão */
+  .fs-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .fs-table thead tr {
+    @apply border-b border-border;
+  }
+  .fs-table thead th {
+    @apply px-4 py-3 text-left text-xs font-mono uppercase tracking-widest text-ink-muted;
+  }
+  .fs-table tbody tr {
+    @apply border-b border-border/50 transition-colors hover:bg-panel/60;
+  }
+  .fs-table tbody td {
+    @apply px-4 py-3 text-ink-secondary;
+  }
+  .fs-table tbody td:first-child {
+    @apply text-ink-primary;
+  }
+
+  /* Badge de status */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-mono font-medium;
+  }
+  .badge-ok   { @apply bg-ok/10 text-ok border border-ok/20; }
+  .badge-warn { @apply bg-warn/10 text-warn border border-warn/20; }
+  .badge-muted { @apply bg-surface text-ink-muted border border-border; }
+
+  /* Card padrão */
+  .fs-card {
+    @apply bg-panel border border-border rounded-lg;
+  }
+
+  /* Botão primário */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-green text-canvas text-sm font-semibold rounded-md
+           hover:bg-green-light transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 text-ink-secondary text-sm
+           hover:text-ink-primary hover:bg-surface transition-colors duration-150 rounded-md;
+  }
+
+  /* Stat card */
+  .stat-card {
+    @apply fs-card p-5 flex flex-col gap-2;
+  }
+}
