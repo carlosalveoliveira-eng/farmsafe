@@ -24,6 +24,10 @@ import { supabase, type Abastecimento } from '../services/supabase'
 import PageHeader from '../components/PageHeader'
 
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
+type StatusCocho = {
+  id: string
+  status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+}
 
 function getInicioPeriodo(periodo: Periodo) {
   if (periodo === 'todos') return null
@@ -112,7 +116,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] =
     useState<Periodo>('7d')
-
+  const [statusCochos, setStatusCochos] = useState<StatusCocho[]>([])
   const [rows, setRows] = useState<Abastecimento[]>([])
 
   async function load() {
@@ -130,6 +134,12 @@ export default function DashboardPage() {
       .order('registrado_em', {
         ascending: true,
       })
+    const { data: statusData } = await supabase
+      .from('vw_status_cochos')
+      .select('id,status_operacional')
+      .eq('ativo', true)
+
+    setStatusCochos((statusData as StatusCocho[]) ?? [])
 
     const inicio = getInicioPeriodo(periodo)
 
@@ -276,6 +286,14 @@ export default function DashboardPage() {
     rankingCochos[0]
 
   const tempoEntreCochos = calcularTempoEntreCochos(rows)
+  const alertasResumo = useMemo(() => {
+    return {
+      ok: statusCochos.filter((c) => c.status_operacional === 'ok').length,
+      atencao: statusCochos.filter((c) => c.status_operacional === 'atencao').length,
+      atrasado: statusCochos.filter((c) => c.status_operacional === 'atrasado').length,
+      semRegistro: statusCochos.filter((c) => c.status_operacional === 'sem_registro').length,
+    }
+  }, [statusCochos])
 
   return (
     <div>
@@ -320,6 +338,27 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div className="fs-card p-4 border-green/20">
+      <p className="text-xs text-ink-muted">Cochos OK</p>
+      <p className="text-2xl font-semibold text-green mt-2">{alertasResumo.ok}</p>
+    </div>
+
+    <div className="fs-card p-4 border-warn/30">
+      <p className="text-xs text-ink-muted">Em atenção</p>
+      <p className="text-2xl font-semibold text-warn mt-2">{alertasResumo.atencao}</p>
+    </div>
+
+    <div className="fs-card p-4 border-err/30">
+      <p className="text-xs text-ink-muted">Atrasados</p>
+      <p className="text-2xl font-semibold text-err mt-2">{alertasResumo.atrasado}</p>
+    </div>
+
+    <div className="fs-card p-4 border-border">
+      <p className="text-xs text-ink-muted">Sem registro</p>
+      <p className="text-2xl font-semibold text-ink-primary mt-2">{alertasResumo.semRegistro}</p>
+    </div>
+  </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
@@ -327,7 +366,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 xl:grid-cols-6 gap-4 mb-6">
+          <div className="grid grid-cols-2 xl:grid-cols-7 gap-4 mb-6">
             <div className="fs-card p-4">
               <div className="flex items-center justify-between">
                 <Flame
@@ -409,6 +448,23 @@ export default function DashboardPage() {
 
               <p className="mt-1 text-xs text-ink-muted">
                 Total operacional
+              </p>
+            </div>
+            
+            <div className="fs-card p-4">
+              <div className="flex items-center justify-between">
+                <CalendarDays size={16} className="text-green" />
+                <span className="text-[10px] text-ink-muted uppercase">
+                  Tempo médio
+                </span>
+              </div>
+
+              <p className="mt-4 text-2xl font-semibold text-ink-primary">
+                {fmtMinutos(tempoEntreCochos.mediaMinutos)}
+              </p>
+
+              <p className="mt-1 text-xs text-ink-muted">
+                Entre cochos
               </p>
             </div>
 
@@ -579,26 +635,6 @@ export default function DashboardPage() {
                       <div className="w-7 h-7 rounded-md bg-green/10 flex items-center justify-center text-xs text-green font-semibold">
                         {idx + 1}
                       </div>
-
-                      <div className="fs-card p-4">
-                      <div className="flex items-center justify-between">
-                        <CalendarDays
-                          size={16}
-                          className="text-green"
-                        />
-                        <span className="text-[10px] text-ink-muted uppercase">
-                          Tempo médio
-                        </span>
-                      </div>
-
-                      <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                        {fmtMinutos(tempoEntreCochos.mediaMinutos)}
-                      </p>
-
-                      <p className="mt-1 text-xs text-ink-muted">
-                        Entre um cocho e outro
-                      </p>
-                    </div>
 
                       <div className="flex-1">
                         <p className="text-sm text-ink-primary">

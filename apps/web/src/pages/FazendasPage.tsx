@@ -21,6 +21,10 @@ import {
   type Retiro,
 } from '../services/supabase'
 
+function gerarCodigoFazenda(total: number) {
+  return `FAZ-${String(total + 1).padStart(4, '0')}`
+}
+
 import PageHeader from '../components/PageHeader'
 
 interface FazendaComDetalhes extends Fazenda {
@@ -37,6 +41,9 @@ type FormFazenda = {
   cidade: string
   estado: string
   ativo: boolean
+  area_valor: string
+  area_unidade: string
+  raio_operacional_metros: string
 }
 
 type FormRetiro = {
@@ -61,6 +68,9 @@ const fazendaInicial: FormFazenda = {
   cidade: '',
   estado: 'MT',
   ativo: true,
+  area_valor: '',
+  area_unidade: 'hectare',
+  raio_operacional_metros: '3000',
 }
 
 const retiroInicial: FormRetiro = {
@@ -75,6 +85,37 @@ const loteInicial: FormLote = {
   nome: '',
   descricao: '',
   ativo: true,
+}
+function converterAreaParaMetrosQuadrados(valor: number, unidade: string) {
+  if (!valor || valor <= 0) return 0
+
+  if (unidade === 'hectare') {
+    return valor * 10000
+  }
+
+  if (unidade === 'alqueire_mt') {
+    return valor * 27225
+  }
+
+  if (unidade === 'alqueire_sp') {
+    return valor * 24200
+  }
+
+  if (unidade === 'alqueire_mg') {
+    return valor * 48400
+  }
+
+  return valor * 10000
+}
+
+function calcularRaioPorArea(valor: number, unidade: string) {
+  const areaM2 = converterAreaParaMetrosQuadrados(valor, unidade)
+
+  if (!areaM2) return 3000
+
+  const raio = Math.sqrt(areaM2 / Math.PI)
+
+  return Math.round(raio)
 }
 
 export default function FazendasPage() {
@@ -136,22 +177,37 @@ export default function FazendasPage() {
   }
 
   function abrirNovaFazenda() {
-    setFormFazenda(fazendaInicial)
-    setModalTipo('fazenda')
-  }
-
-  function abrirEditarFazenda(fazenda: Fazenda) {
     setFormFazenda({
-      id: fazenda.id,
-      nome: fazenda.nome,
-      codigo: fazenda.codigo,
-      cidade: fazenda.cidade ?? '',
-      estado: fazenda.estado ?? 'MT',
-      ativo: fazenda.ativo,
+      ...fazendaInicial,
+      codigo: gerarCodigoFazenda(fazendas.length),
     })
 
     setModalTipo('fazenda')
   }
+
+  function abrirEditarFazenda(fazenda: Fazenda) {
+  setFormFazenda({
+    id: fazenda.id,
+    nome: fazenda.nome,
+    codigo: fazenda.codigo,
+    cidade: fazenda.cidade ?? '',
+    estado: fazenda.estado ?? 'MT',
+    ativo: fazenda.ativo,
+
+    area_valor: fazenda.area_valor
+      ? String(fazenda.area_valor)
+      : '',
+
+    area_unidade: fazenda.area_unidade ?? 'hectare',
+
+    raio_operacional_metros:
+      fazenda.raio_operacional_metros
+        ? String(fazenda.raio_operacional_metros)
+        : '3000',
+  })
+
+  setModalTipo('fazenda')
+}
 
   function abrirNovoRetiro(fazendaId?: string) {
     setFormRetiro({
@@ -201,11 +257,6 @@ export default function FazendasPage() {
     return
   }
 
-  if (!formFazenda.codigo.trim()) {
-    alert('Informe o código da fazenda.')
-    return
-  }
-
   setSalvando(true)
 
   try {
@@ -234,9 +285,24 @@ export default function FazendasPage() {
     const payload = {
       nome: formFazenda.nome.trim(),
       codigo: formFazenda.codigo.trim().toUpperCase(),
+
       cidade: formFazenda.cidade.trim() || null,
       estado: formFazenda.estado.trim().toUpperCase() || null,
+
       ativo: formFazenda.ativo,
+
+      area_valor: formFazenda.area_valor
+        ? Number(formFazenda.area_valor)
+        : null,
+
+      area_unidade:
+        formFazenda.area_unidade || 'hectare',
+
+      raio_operacional_metros:
+        formFazenda.raio_operacional_metros
+          ? Number(formFazenda.raio_operacional_metros)
+          : 3000,
+
       empresa_id: empresa.id,
     }
 
@@ -668,9 +734,9 @@ export default function FazendasPage() {
                     <label className="text-xs text-ink-muted">Código</label>
                     <input
                       value={formFazenda.codigo}
-                      onChange={(e) => setFormFazenda({ ...formFazenda, codigo: e.target.value.toUpperCase() })}
-                      placeholder="FAZ-001"
-                      className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary font-mono focus:outline-none focus:border-green/50"
+                      readOnly
+                      placeholder="Gerado automaticamente"
+                      className="mt-1 w-full px-3 py-2 bg-canvas/60 border border-border rounded-md text-sm text-ink-muted font-mono cursor-not-allowed"
                     />
                   </div>
 
@@ -696,7 +762,97 @@ export default function FazendasPage() {
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-ink-muted">
+                    Área
+                  </label>
 
+                  <input
+                    type="number"
+                    value={formFazenda.area_valor}
+                    onChange={(e) => {
+                      const area = e.target.value
+
+                      const raio = calcularRaioPorArea(
+                        Number(area),
+                        formFazenda.area_unidade
+                      )
+
+                      setFormFazenda({
+                        ...formFazenda,
+                        area_valor: area,
+                        raio_operacional_metros: String(raio),
+                      })
+                    }}
+                    placeholder="Ex: 500"
+                    className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-ink-muted">
+                    Unidade
+                  </label>
+
+                  <select
+                    value={formFazenda.area_unidade}
+                    onChange={(e) => {
+                      const unidade = e.target.value
+
+                      const raio = calcularRaioPorArea(
+                        Number(formFazenda.area_valor),
+                        unidade
+                      )
+
+                      setFormFazenda({
+                        ...formFazenda,
+                        area_unidade: unidade,
+                        raio_operacional_metros: String(raio),
+                      })
+                    }}
+                    className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  >
+                    <option value="hectare">
+                      Hectare
+                    </option>
+
+                    <option value="alqueire_mt">
+                      Alqueire MT
+                    </option>
+
+                    <option value="alqueire_sp">
+                      Alqueire SP
+                    </option>
+
+                    <option value="alqueire_mg">
+                      Alqueire MG
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-ink-muted">
+                    Raio operacional
+                  </label>
+
+                  <input
+                    type="number"
+                    value={formFazenda.raio_operacional_metros}
+                    onChange={(e) =>
+                      setFormFazenda({
+                        ...formFazenda,
+                        raio_operacional_metros: e.target.value,
+                      })
+                    }
+                    className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  />
+
+                  <p className="text-[10px] text-ink-muted mt-1">
+                    Calculado automaticamente.
+                  </p>
+                </div>
+              </div>
                   <label className="flex items-center gap-2 text-sm text-ink-secondary">
                     <input
                       type="checkbox"

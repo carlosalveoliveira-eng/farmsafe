@@ -127,12 +127,28 @@ export default function CochosPage() {
     setModalAberto(true)
   }
 
-  function gerarCodigoAutomatico() {
-    const numero = String(cochos.length + 1).padStart(3, '0')
+  async function gerarCodigoAutomatico() {
+    if (!form.fazenda_id) {
+      alert('Selecione a fazenda antes.')
+      return
+    }
+
+    const { data, error } = await supabase.rpc(
+      'gerar_codigo_cocho',
+      {
+        p_fazenda_id: form.fazenda_id,
+      }
+    )
+
+    if (error) {
+      console.error(error)
+      alert('Erro ao gerar QR.')
+      return
+    }
 
     setForm((atual) => ({
       ...atual,
-      codigo_qr: `FS-COCHO-${numero}`,
+      codigo_qr: data,
     }))
   }
 
@@ -370,14 +386,9 @@ export default function CochosPage() {
                 <div className="mt-1 flex gap-2">
                   <input
                     value={form.codigo_qr}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        codigo_qr: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="FS-COCHO-001"
-                    className="flex-1 px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary font-mono focus:outline-none focus:border-green/50"
+                    readOnly
+                    placeholder="Gerado automaticamente"
+                    className="flex-1 px-3 py-2 bg-canvas/60 border border-border rounded-md text-sm text-ink-muted font-mono cursor-not-allowed"
                   />
 
                   <button
@@ -399,6 +410,7 @@ export default function CochosPage() {
                     setForm({
                       ...form,
                       fazenda_id: e.target.value,
+                      codigo_qr: '',
                     })
                   }
                   className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"

@@ -21,14 +21,9 @@ export function AtivacaoPage({ onAtivado }: AtivacaoPageProps) {
 
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('dispositivos')
-      .select('id, nome, tratador_nome, ativo')
-      .eq('device_secret', valor)
-      .eq('ativo', true)
-      .maybeSingle()
-
-    setLoading(false)
+    const { data, error } = await supabase.rpc('ativar_dispositivo', {
+      p_device_secret: valor,
+    })
 
     if (error) {
       console.error(error)
@@ -36,8 +31,8 @@ export function AtivacaoPage({ onAtivado }: AtivacaoPageProps) {
       return
     }
 
-    if (!data) {
-      alert('Código inválido ou dispositivo inativo.')
+    if (!data?.ok) {
+      alert(data?.erro ?? 'Código inválido ou dispositivo inativo.')
       return
     }
 

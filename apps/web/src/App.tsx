@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js'
 
 import { supabase } from './services/supabase'
 
+import AlertasPage from './pages/AlertasPage'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
@@ -63,6 +64,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="abastecimentos" element={<AbastecimentosPage />} />
           <Route path="cochos" element={<CochosPage />} />
+          <Route path="alertas" element={<AlertasPage />} />
           <Route path="dispositivos" element={<DispositivosPage />} />
           <Route path="fazendas" element={<FazendasPage />} />
           <Route path="mapa-operacional" element={<MapaOperacionalPage />} />

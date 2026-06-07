@@ -25,6 +25,11 @@ type PontoMapa = Abastecimento & {
   lng: number
 }
 
+type StatusCocho = {
+  id: string
+  status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+}
+
 delete (L.Icon.Default.prototype as any)._getIconUrl
 
 L.Icon.Default.mergeOptions({
@@ -36,17 +41,24 @@ L.Icon.Default.mergeOptions({
     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function criarMarcadorPorTipo(tipo: string, numero: number) {
-  const cor =
-    tipo === 'sal_mineral'
-      ? '#2f7d46'
-      : tipo === 'sal_proteinado'
-      ? '#d69e2e'
+function criarMarcadorPorStatus(
+  tipo: string,
+  numero: number,
+  status: 'ok' | 'atencao' | 'atrasado' | 'sem_registro',
+  foraDaArea = false
+) {
+  let cor =
+    status === 'atrasado'
+      ? '#ef4444'
+      : status === 'atencao' || status === 'sem_registro'
+      ? '#f59e0b'
       : tipo === 'racao'
       ? '#2563eb'
-      : tipo === 'sal_comum'
-      ? '#94a3b8'
-      : '#e53e3e'
+      : '#22c55e'
+
+  if (foraDaArea) {
+    cor = '#7f1d1d'
+  }
 
   return L.divIcon({
     className: '',
@@ -57,7 +69,7 @@ function criarMarcadorPorTipo(tipo: string, numero: number) {
         border-radius: 999px;
         background: ${cor};
         border: 3px solid #f3f4ec;
-        box-shadow: 0 0 0 6px rgba(47,125,70,0.22);
+        box-shadow: 0 0 0 6px rgba(0,0,0,0.25);
         color: white;
         font-weight: 700;
         font-size: 12px;
@@ -128,6 +140,13 @@ export default function MapaOperacionalPage() {
   const [registros, setRegistros] = useState<Abastecimento[]>([])
   const [fazendaCentro, setFazendaCentro] =
     useState<[number, number] | null>(null)
+  const [statusCochos, setStatusCochos] = useState<StatusCocho[]>([])
+
+  function getStatusCocho(cochoId: string) {
+    return (
+      statusCochos.find((s) => s.id === cochoId)?.status_operacional ?? 'ok'
+    )
+  }
 
   async function load() {
     setLoading(true)
@@ -173,7 +192,14 @@ export default function MapaOperacionalPage() {
       ])
     }
 
-    setLoading(false)
+    const { data: statusData } = await supabase
+    .from('vw_status_cochos')
+    .select('id,status_operacional')
+    .eq('ativo', true)
+
+  setStatusCochos((statusData as StatusCocho[]) ?? [])
+
+      setLoading(false)
   }
 
   useEffect(() => {
@@ -249,6 +275,22 @@ function calcularDistanciaMetros(
   return R * c
 }
 
+function pontoForaDaFazenda(
+  ponto: PontoMapa
+) {
+  if (!fazendaCentro) return false
+
+  const distancia =
+    calcularDistanciaMetros(
+      fazendaCentro[0],
+      fazendaCentro[1],
+      ponto.lat,
+      ponto.lng
+    )
+
+  return distancia > 3000
+}
+
 function calcularDistanciaAnterior(index: number) {
   if (index === 0) return null
 
@@ -307,27 +349,35 @@ function calcularDistanciaAnterior(index: number) {
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 mb-5 text-xs text-ink-muted">
-          <span className="flex items-center gap-2 whitespace-nowrap">
-            <span className="w-3 h-3 rounded-full bg-green" />
-            Sal mineral
-          </span>
+     <div className="flex flex-wrap items-center gap-4 mb-5 text-xs text-ink-muted">
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="w-3 h-3 rounded-full bg-green" />
+        OK
+      </span>
 
-          <span className="flex items-center gap-2 whitespace-nowrap">
-            <span className="w-3 h-3 rounded-full bg-warn" />
-            Sal proteinado
-          </span>
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="w-3 h-3 rounded-full bg-warn" />
+        Atenção
+      </span>
 
-          <span className="flex items-center gap-2 whitespace-nowrap">
-            <span className="w-3 h-3 rounded-full bg-blue-600" />
-            Ração
-          </span>
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="w-3 h-3 rounded-full bg-err" />
+        Atrasado
+      </span>
 
-          <span className="flex items-center gap-2 whitespace-nowrap">
-            <span className="w-3 h-3 rounded-full bg-slate-400" />
-            Sal comum
-          </span>
-        </div>
+      <span className="flex items-center gap-2 whitespace-nowrap">
+      <span
+        className="w-3 h-3 rounded-full"
+        style={{ background: '#7f1d1d' }}
+      />
+      Fora da área
+    </span>
+
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="w-3 h-3 rounded-full bg-blue-600" />
+        Ração
+      </span>
+    </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         <div className="fs-card overflow-hidden h-[620px]">
@@ -361,51 +411,78 @@ function calcularDistanciaAnterior(index: number) {
               )}
 
               {pontos.map((ponto, index) => (
-                <Marker
-                  key={ponto.id}
-                  position={[ponto.lat, ponto.lng]}
-                  icon={criarMarcadorPorTipo(ponto.tipo_abastecimento, index + 1)}
-                >
-                  <Popup>
-                    <div style={{ minWidth: 180 }}>
-                      <strong>
-                        #{index + 1} — {ponto.cocho?.nome ?? 'Cocho'}
-                      </strong>
+              <Marker
+                key={ponto.id}
+                position={[ponto.lat, ponto.lng]}
+                icon={criarMarcadorPorStatus(
+                  ponto.tipo_abastecimento,
+                  index + 1,
+                  getStatusCocho(ponto.cocho_id),
+                  pontoForaDaFazenda(ponto)
+                )}
+              >
+                <Popup>
+                  <div style={{ minWidth: 180 }}>
+                    <strong>
+                      #{index + 1} — {ponto.cocho?.nome ?? 'Cocho'}
+                    </strong>
 
-                      <br />
+                    <br />
 
-                      <span>
-                        Código: {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
+                    <span>
+                      Código: {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
+                    </span>
+
+                    <br />
+
+                    <span>
+                      Quantidade: {ponto.quantidade_kg ?? 0} kg
+                    </span>
+
+                    <br />
+
+                    <span>
+                      Tratador:{' '}
+                      {ponto.dispositivo?.tratador_nome ??
+                        ponto.dispositivo?.nome ??
+                        '—'}
+                    </span>
+
+                    <br />
+
+                    <span>
+                      Horário: {fmtDateTime(ponto.registrado_em)}
+                    </span>
+
+                    <br />
+
+                    <span>
+                      Tempo anterior:{' '}
+                      {calcularTempoAnterior(index) ?? 'Primeiro ponto'}
+                    </span>
+
+                    <br />
+
+                    <span>
+                      Status: {getStatusCocho(ponto.cocho_id)}
+                    </span>
+
+                    <br />
+
+                    {pontoForaDaFazenda(ponto) && (
+                      <span
+                        style={{
+                          color: '#ef4444',
+                          fontWeight: 700,
+                        }}
+                      >
+                        ⚠ Fora da área operacional
                       </span>
-
-                      <br />
-
-                      <span>
-                        Quantidade: {ponto.quantidade_kg ?? 0} kg
-                      </span>
-
-                      <br />
-
-                      <span>
-                        Tratador:{' '}
-                        {ponto.dispositivo?.tratador_nome ??
-                          ponto.dispositivo?.nome ??
-                          '—'}
-                      </span>
-
-                      <br />
-
-                      <span>
-                        Horário: {fmtDateTime(ponto.registrado_em)}
-                      </span>
-                      <span>
-                        Tempo anterior:{' '}
-                        {calcularTempoAnterior(index) ?? 'Primeiro ponto'}
-                      </span>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
             </MapContainer>
           )}
         </div>
@@ -454,17 +531,22 @@ function calcularDistanciaAnterior(index: number) {
                       ponto.dispositivo?.nome ??
                       'Sem tratador'}
                   </p>
+                  
                   {calcularTempoAnterior(index) && (
-                <p className="text-xs text-green mt-2">
-                  Tempo desde o ponto anterior: {calcularTempoAnterior(index)}
-                  {calcularDistanciaAnterior(index) && (
-                  <p className="text-xs text-blue-400 mt-1">
-                    Distância do ponto anterior:{' '}
-                    {calcularDistanciaAnterior(index)}
-                  </p>
+                  <div className="mt-2">
+                    <p className="text-xs text-green">
+                      Tempo desde o ponto anterior:{' '}
+                      {calcularTempoAnterior(index)}
+                    </p>
+
+                    {calcularDistanciaAnterior(index) && (
+                      <p className="text-xs text-blue-400 mt-1">
+                        Distância do ponto anterior:{' '}
+                        {calcularDistanciaAnterior(index)}
+                      </p>
+                    )}
+                  </div>
                 )}
-                </p>
-              )}
 
                   <p className="text-[10px] text-ink-muted/70 font-mono mt-2">
                     {ponto.lat.toFixed(6)}, {ponto.lng.toFixed(6)}

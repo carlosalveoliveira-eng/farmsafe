@@ -27,6 +27,9 @@ export interface Fazenda {
   estado:     string | null
   latitude: number | null
   longitude: number | null
+  area_valor: number | null
+  area_unidade: string | null
+  raio_operacional_metros: number | null
   ativo:      boolean
   created_at: string
   updated_at: string

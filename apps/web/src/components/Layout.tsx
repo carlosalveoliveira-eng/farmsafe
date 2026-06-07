@@ -8,6 +8,7 @@ import {
   ChevronRight,
   MapPinned,
   LogOut,
+  AlertTriangle,
 } from 'lucide-react'
 
 import { supabase } from '../services/supabase'
@@ -16,6 +17,7 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/abastecimentos', label: 'Abastecimentos', icon: Droplets },
   { to: '/cochos', label: 'Cochos', icon: Box },
+  { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
   { to: '/dispositivos', label: 'Dispositivos', icon: Smartphone },
   { to: '/fazendas', label: 'Fazendas', icon: Building2 },
   { to: '/mapa-operacional', label: 'Mapa Operacional', icon: MapPinned },
