@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 
 import { useNetworkStatus } from './hooks/useNetworkStatus'
-import { salvarDeviceSecret } from './services/device'
 import { useAutoSync } from './hooks/useAutoSync'
 import { sincronizarRegistros } from './services/sync'
+import { obterDeviceSecret } from './services/device'
 
+import { AtivacaoPage } from './pages/AtivacaoPage'
 import { HomePage } from './pages/HomePage'
 import { ScannerPage } from './pages/ScannerPage'
 import { RegistroPage } from './pages/RegistroPage'
@@ -13,49 +14,58 @@ import { HistoricoPage } from './pages/HistoricoPage'
 import { usePendentes } from './hooks/usePendentes'
 
 function App() {
+  const [ativado, setAtivado] = useState(false)
+
   const [tela, setTela] = useState<
     'home' | 'scanner' | 'registro' | 'historico'
   >('home')
 
   const [codigoQr, setCodigoQr] = useState<string | null>(null)
-
-  const [sincronizando, setSincronizando] =
-  useState(false)
+  const [sincronizando, setSincronizando] = useState(false)
 
   const online = useNetworkStatus()
-
   const { pendentes, carregarPendentes } = usePendentes()
+
   useAutoSync({
-  pendentes,
-  carregarPendentes,
-})
+    pendentes,
+    carregarPendentes,
+  })
 
   useEffect(() => {
-    salvarDeviceSecret('DEV-TESTE-001')
+    const secret = obterDeviceSecret()
+    setAtivado(Boolean(secret))
   }, [])
 
   async function sincronizar() {
-  if (pendentes === 0) {
-    alert('Nenhum registro pendente para sincronizar.')
-    return
+    if (pendentes === 0) {
+      alert('Nenhum registro pendente para sincronizar.')
+      return
+    }
+
+    try {
+      setSincronizando(true)
+
+      const resultado = await sincronizarRegistros()
+
+      await carregarPendentes()
+
+      alert(
+        `Sincronização finalizada!\n\nEnviados: ${resultado.enviados}\nFalhas: ${resultado.falhas}`
+      )
+    } finally {
+      setSincronizando(false)
+    }
   }
 
-  try {
-    setSincronizando(true)
-
-    const resultado =
-      await sincronizarRegistros()
-
-    await carregarPendentes()
-
-    alert(
-      `Sincronização finalizada!\n\nEnviados: ${resultado.enviados}\nFalhas: ${resultado.falhas}`
+  if (!ativado) {
+    return (
+      <AtivacaoPage
+        onAtivado={() => {
+          setAtivado(true)
+        }}
+      />
     )
-
-  } finally {
-    setSincronizando(false)
   }
-}
 
   if (tela === 'scanner') {
     return (
