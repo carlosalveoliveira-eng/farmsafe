@@ -1,5 +1,5 @@
 import { db } from '../database/db'
-import { obterDeviceSecret, removerDeviceSecret } from './device'
+import { obterDeviceSecret } from './device'
 import { supabase } from './supabase'
 
 type SyncResponse = {
@@ -9,7 +9,7 @@ type SyncResponse = {
   id?: string
 }
 
-function deveDesativarDispositivo(mensagem: string) {
+function isErroAutorizacaoDispositivo(mensagem: string) {
   const texto = mensagem.toLowerCase()
 
   return (
@@ -20,17 +20,6 @@ function deveDesativarDispositivo(mensagem: string) {
     texto.includes('nao autorizado') ||
     texto.includes('invalid')
   )
-}
-
-async function desconectarDispositivo(mensagem: string) {
-  removerDeviceSecret()
-
-  alert(
-    mensagem ||
-      'Este dispositivo foi desativado pela gestão. Faça uma nova ativação.'
-  )
-
-  window.location.reload()
 }
 
 export async function sincronizarRegistros() {
@@ -48,6 +37,7 @@ export async function sincronizarRegistros() {
 
   let enviados = 0
   let falhas = 0
+  let bloqueadoPorAutorizacao = false
 
   for (const registro of pendentes) {
     if (!registro.id) continue
@@ -56,11 +46,6 @@ export async function sincronizarRegistros() {
       await db.abastecimentos.update(registro.id, {
         status_sync: 'sincronizando',
         erro_sync: null,
-      })
-
-      console.log('Enviando GPS para Supabase:', {
-        latitude: registro.latitude,
-        longitude: registro.longitude,
       })
 
       const { data, error } = await supabase.rpc('sync_abastecimento', {
@@ -77,20 +62,21 @@ export async function sincronizarRegistros() {
       })
 
       if (error) {
+        const mensagem = error.message
+
         await db.abastecimentos.update(registro.id, {
           status_sync: 'erro',
-          erro_sync: error.message,
+          erro_sync: mensagem,
           tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
         })
 
-        if (deveDesativarDispositivo(error.message)) {
-          await desconectarDispositivo(
-            'Este dispositivo foi desativado ou não está autorizado. Faça uma nova ativação.'
-          )
-          return { enviados, falhas: falhas + 1, total: pendentes.length }
+        falhas++
+
+        if (isErroAutorizacaoDispositivo(mensagem)) {
+          bloqueadoPorAutorizacao = true
+          break
         }
 
-        falhas++
         continue
       }
 
@@ -105,14 +91,13 @@ export async function sincronizarRegistros() {
           tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
         })
 
-        if (deveDesativarDispositivo(mensagem)) {
-          await desconectarDispositivo(
-            'Este dispositivo foi desativado pela gestão. Faça uma nova ativação.'
-          )
-          return { enviados, falhas: falhas + 1, total: pendentes.length }
+        falhas++
+
+        if (isErroAutorizacaoDispositivo(mensagem)) {
+          bloqueadoPorAutorizacao = true
+          break
         }
 
-        falhas++
         continue
       }
 
@@ -132,20 +117,29 @@ export async function sincronizarRegistros() {
         tentativas_sync: (registro.tentativas_sync ?? 0) + 1,
       })
 
-      if (deveDesativarDispositivo(mensagem)) {
-        await desconectarDispositivo(
-          'Este dispositivo foi desativado ou perdeu autorização. Faça uma nova ativação.'
-        )
-        return { enviados, falhas: falhas + 1, total: pendentes.length }
-      }
-
       falhas++
+
+      if (isErroAutorizacaoDispositivo(mensagem)) {
+        bloqueadoPorAutorizacao = true
+        break
+      }
     }
+  }
+
+  if (bloqueadoPorAutorizacao) {
+    alert(
+      'Este dispositivo não está autorizado ou foi desativado pela gestão. Os registros pendentes foram mantidos no aparelho.'
+    )
   }
 
   return {
     enviados,
     falhas,
     total: pendentes.length,
+    bloqueadoPorAutorizacao,
   }
+}
+
+export async function limparFilaLocal() {
+  await db.abastecimentos.clear()
 }
