@@ -1,28 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-
       manifest: {
         name: 'Farmsafe Coletor',
         short_name: 'Farmsafe',
-
-        description:
-          'Coletor operacional offline do Farmsafe',
-
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
-
+        description: 'Coletor de abastecimentos Farmsafe',
+        theme_color: '#0f130f',
+        background_color: '#0f130f',
         display: 'standalone',
-
         start_url: '/',
-
         icons: [
           {
             src: '/icons/icon-192.png',
