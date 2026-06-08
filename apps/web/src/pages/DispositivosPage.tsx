@@ -12,6 +12,8 @@ import {
   Save,
   KeyRound,
   Copy,
+  AlertCircle,
+  Activity,
 } from 'lucide-react'
 
 import {
@@ -20,7 +22,11 @@ import {
   type Fazenda,
 } from '../services/supabase'
 
-import PageHeader from '../components/PageHeader'
+import PageHeader from '../components/ui/PageHeader'
+import StatCard from '../components/ui/StatCard'
+import SectionCard from '../components/ui/SectionCard'
+import StatusBadge from '../components/ui/StatusBadge'
+import EmptyState from '../components/ui/EmptyState'
 
 type FormDispositivo = {
   id?: string
@@ -134,8 +140,6 @@ export default function DispositivosPage() {
       nome: dispositivo.nome,
       tratador_nome: dispositivo.tratador_nome ?? '',
       device_secret:
-        // o tipo atual não tem device_secret por segurança visual,
-        // então só permite alterar se vier do Supabase no select futuro
         '',
       ativo: dispositivo.ativo,
     })
@@ -144,89 +148,88 @@ export default function DispositivosPage() {
   }
 
   async function salvarDispositivo() {
-  if (!form.nome.trim()) {
-    alert('Informe o nome do dispositivo.')
-    return
-  }
-
-  if (!form.fazenda_id) {
-    alert('Selecione a fazenda.')
-    return
-  }
-
-  if (!form.id && !form.device_secret.trim()) {
-    alert('Gere ou informe o código interno do dispositivo.')
-    return
-  }
-
-  setSalvando(true)
-
-  try {
-    const usuario = await getEmpresaUsuario()
-
-    const empresa = usuario.empresa as any
-
-    if (!empresa?.id) {
-      alert('Empresa não encontrada.')
+    if (!form.nome.trim()) {
+      alert('Informe o nome do dispositivo.')
       return
     }
 
-    // LIMITE DO PLANO
-    if (!form.id) {
-      const totalDispositivos = dispositivos.length
+    if (!form.fazenda_id) {
+      alert('Selecione a fazenda.')
+      return
+    }
 
-      if (
-        empresa.max_dispositivos &&
-        totalDispositivos >= empresa.max_dispositivos
-      ) {
-        alert(
-          `Seu plano permite apenas ${empresa.max_dispositivos} dispositivo(s).`
-        )
+    if (!form.id && !form.device_secret.trim()) {
+      alert('Gere ou informe o código interno do dispositivo.')
+      return
+    }
 
+    setSalvando(true)
+
+    try {
+      const usuario = await getEmpresaUsuario()
+
+      const empresa = usuario.empresa as any
+
+      if (!empresa?.id) {
+        alert('Empresa não encontrada.')
         return
       }
+
+      if (!form.id) {
+        const totalDispositivos = dispositivos.length
+
+        if (
+          empresa.max_dispositivos &&
+          totalDispositivos >= empresa.max_dispositivos
+        ) {
+          alert(
+            `Seu plano permite apenas ${empresa.max_dispositivos} dispositivo(s).`
+          )
+
+          return
+        }
+      }
+
+      const payloadNovo = {
+        fazenda_id: form.fazenda_id,
+        nome: form.nome.trim(),
+        tratador_nome: form.tratador_nome.trim() || null,
+        device_secret: form.device_secret.trim().toUpperCase(),
+        ativo: form.ativo,
+        empresa_id: empresa.id,
+      }
+
+      const payloadEdicao = {
+        fazenda_id: form.fazenda_id,
+        nome: form.nome.trim(),
+        tratador_nome: form.tratador_nome.trim() || null,
+        ativo: form.ativo,
+        empresa_id: empresa.id,
+      }
+
+      const { error } = form.id
+        ? await supabase
+            .from('dispositivos')
+            .update(payloadEdicao)
+            .eq('id', form.id)
+
+        : await supabase
+            .from('dispositivos')
+            .insert(payloadNovo)
+
+      if (error) {
+        console.error(error)
+        alert(`Erro ao salvar dispositivo: ${error.message}`)
+        return
+      }
+
+      setModalAberto(false)
+
+      await load()
+    } finally {
+      setSalvando(false)
     }
-
-    const payloadNovo = {
-      fazenda_id: form.fazenda_id,
-      nome: form.nome.trim(),
-      tratador_nome: form.tratador_nome.trim() || null,
-      device_secret: form.device_secret.trim().toUpperCase(),
-      ativo: form.ativo,
-      empresa_id: empresa.id,
-    }
-
-    const payloadEdicao = {
-      fazenda_id: form.fazenda_id,
-      nome: form.nome.trim(),
-      tratador_nome: form.tratador_nome.trim() || null,
-      ativo: form.ativo,
-      empresa_id: empresa.id,
-    }
-
-    const { error } = form.id
-      ? await supabase
-          .from('dispositivos')
-          .update(payloadEdicao)
-          .eq('id', form.id)
-
-      : await supabase
-          .from('dispositivos')
-          .insert(payloadNovo)
-
-    if (error) {
-      console.error(error)
-      alert(`Erro ao salvar dispositivo: ${error.message}`)
-      return
-    }
-
-    setModalAberto(false)
-
-    await load()
-  } finally {
-    setSalvando(false)
   }
-}
 
   async function alternarAtivo(dispositivo: Dispositivo) {
     const confirmar = confirm(
@@ -255,16 +258,13 @@ export default function DispositivosPage() {
 
   const ativos = dispositivos.filter((d) => d.ativo)
   const inativos = dispositivos.filter((d) => !d.ativo)
+  const online = dispositivos.filter((d) => d.ativo && isRecente(d.ultimo_sync))
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Dispositivos"
-        subtitle={`${ativos.length} ativo${
-          ativos.length !== 1 ? 's' : ''
-        } · ${inativos.length} inativo${
-          inativos.length !== 1 ? 's' : ''
-        }`}
+        description="Controle operacional e rastreabilidade dos dispositivos de campo"
         action={
           <div className="flex items-center gap-2">
             <button
@@ -272,7 +272,7 @@ export default function DispositivosPage() {
               className="btn-primary"
             >
               <Plus size={14} />
-              Novo dispositivo
+              Novo Dispositivo
             </button>
 
             <button
@@ -290,207 +290,231 @@ export default function DispositivosPage() {
         }
       />
 
-      {dispositivos.length > 3 && (
-  <div className="mb-6 bg-warn/10 border border-warn/30 rounded-lg p-4">
-    <p className="text-sm text-warn font-medium">
-      Limite de dispositivos excedido
-    </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total de Dispositivos"
+          value={dispositivos.length}
+          icon={Smartphone}
+          color="bg-blue/10 text-blue"
+        />
+        <StatCard
+          title="Dispositivos Ativos"
+          value={ativos.length}
+          icon={Activity}
+          color="bg-green/10 text-green"
+        />
+        <StatCard
+          title="Online Agora"
+          value={online.length}
+          icon={Wifi}
+          color="bg-emerald/10 text-emerald"
+        />
+        <StatCard
+          title="Inativos"
+          value={inativos.length}
+          icon={AlertCircle}
+          color="bg-amber/10 text-amber"
+        />
+      </div>
 
-    <p className="text-xs text-ink-muted mt-1">
-      Este plano permite até 3 dispositivos. Para cadastrar mais usuários/tratadores,
-      será necessário aumentar o plano.
-    </p>
-  </div>
-)}
+      {dispositivos.length > 3 && (
+        <SectionCard>
+          <div className="bg-amber/10 border border-amber/30 rounded-lg p-4">
+            <p className="text-sm font-semibold text-amber">
+              Limite de dispositivos próximo
+            </p>
+
+            <p className="text-sm text-ink-muted mt-2">
+              Este plano permite até 3 dispositivos. Para cadastrar mais usuários/tratadores,
+              será necessário aumentar o plano.
+            </p>
+          </div>
+        </SectionCard>
+      )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="w-6 h-6 border-2 border-green/30 border-t-green rounded-full animate-spin" />
-        </div>
+        <SectionCard>
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
+          </div>
+        </SectionCard>
       ) : dispositivos.length === 0 ? (
-        <div className="py-24 text-center text-ink-muted text-sm">
-          Nenhum dispositivo cadastrado.
-        </div>
+        <EmptyState
+          title="Nenhum dispositivo cadastrado"
+          description="Comece adicionando um novo dispositivo para rastrear seus tratadores no campo."
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {dispositivos.map((dispositivo) => {
-            const online = isRecente(dispositivo.ultimo_sync)
+        <SectionCard title="Dispositivos Operacionais">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dispositivos.map((dispositivo) => {
+              const isOnline = isRecente(dispositivo.ultimo_sync)
 
-            return (
-              <div
-                key={dispositivo.id}
-                className={`fs-card p-5 flex flex-col gap-4 ${
-                  !dispositivo.ativo ? 'opacity-50' : ''
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`p-2 rounded-md ${
-                        online ? 'bg-ok/10' : 'bg-surface'
-                      }`}
-                    >
-                      <Smartphone
-                        size={16}
-                        className={
-                          online
-                            ? 'text-ok'
-                            : 'text-ink-muted'
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-ink-primary">
-                        {dispositivo.nome}
-                      </p>
-
-                      {dispositivo.tratador_nome && (
-                        <p className="text-xs text-ink-muted">
-                          {dispositivo.tratador_nome}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    className={`badge ${
-                      dispositivo.ativo
-                        ? online
-                          ? 'badge-ok'
-                          : 'badge-muted'
-                        : 'badge-muted'
-                    }`}
-                  >
-                    {!dispositivo.ativo
-                      ? 'inativo'
-                      : online
-                      ? 'online'
-                      : 'offline'}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5 text-xs text-ink-muted">
-                  <div className="flex items-center justify-between">
-                    <span>Fazenda</span>
-                    <span className="text-ink-secondary font-medium">
-                      {dispositivo.fazenda?.nome ?? '—'}
-                      {dispositivo.fazenda?.codigo && (
-                        <span className="ml-1 font-mono text-ink-muted">
-                          ({dispositivo.fazenda.codigo})
-                        </span>
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      {online ? (
-                        <Wifi size={11} className="text-ok" />
-                      ) : (
-                        <WifiOff size={11} />
-                      )}
-                      Último sync
-                    </span>
-
-                    <span
-                      className={`font-mono ${
-                        online
-                          ? 'text-ok'
-                          : 'text-ink-muted'
-                      }`}
-                    >
-                      {fmtRelativo(dispositivo.ultimo_sync)}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-canvas border border-border rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-ink-muted">
-                        Código de ativação
-                      </p>
-
-                      <p className="font-mono text-xs text-ink-primary mt-1">
-                        {dispositivo.device_secret ?? '—'}
-                      </p>
-                    </div>
-
-                    {dispositivo.device_secret && (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(dispositivo.device_secret!)
-                          alert('Código copiado!')
-                        }}
-                        className="w-8 h-8 rounded-md bg-surface border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary"
-                        title="Copiar código"
+              return (
+                <div
+                  key={dispositivo.id}
+                  className={`border border-border rounded-lg p-4 bg-white transition-all ${
+                    !dispositivo.ativo ? 'opacity-60' : 'hover:shadow-md'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div
+                        className={`p-2 rounded-lg flex-shrink-0 ${
+                          isOnline ? 'bg-emerald/10' : 'bg-surface'
+                        }`}
                       >
-                        <Copy size={13} />
-                      </button>
-                    )}
+                        <Smartphone
+                          size={18}
+                          className={
+                            isOnline
+                              ? 'text-emerald'
+                              : 'text-ink-muted'
+                          }
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-ink-primary">
+                          {dispositivo.nome}
+                        </h3>
+
+                        {dispositivo.tratador_nome && (
+                          <p className="text-xs text-ink-muted mt-1">
+                            {dispositivo.tratador_nome}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <StatusBadge status={
+                      !dispositivo.ativo
+                        ? 'muted'
+                        : isOnline
+                        ? 'ok'
+                        : 'warn'
+                    }>
+                      {!dispositivo.ativo
+                        ? 'Inativo'
+                        : isOnline
+                        ? 'Online'
+                        : 'Offline'}
+                    </StatusBadge>
+                  </div>
+
+                  <div className="space-y-3 mb-4 pb-4 border-b border-border/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-ink-muted">Fazenda</span>
+                      <span className="text-sm font-semibold text-ink-primary">
+                        {dispositivo.fazenda?.nome ?? '—'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-ink-muted flex items-center gap-1">
+                        {isOnline ? (
+                          <Wifi size={12} className="text-emerald" />
+                        ) : (
+                          <WifiOff size={12} className="text-ink-muted" />
+                        )}
+                        Último sync
+                      </span>
+
+                      <span
+                        className={`text-sm font-mono font-semibold ${
+                          isOnline
+                            ? 'text-emerald'
+                            : 'text-ink-muted'
+                        }`}
+                      >
+                        {fmtRelativo(dispositivo.ultimo_sync)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface rounded-lg p-3 mb-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest font-semibold text-ink-muted">
+                          Código de Ativação
+                        </p>
+
+                        <p className="font-mono text-xs text-ink-primary mt-2 font-semibold">
+                          {dispositivo.device_secret ?? '—'}
+                        </p>
+                      </div>
+
+                      {dispositivo.device_secret && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(dispositivo.device_secret!)
+                            alert('Código copiado!')
+                          }}
+                          className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary hover:bg-surface transition-colors flex-shrink-0"
+                          title="Copiar código"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => abrirEditar(dispositivo)}
+                      className="btn-ghost justify-center text-xs py-2 border border-border"
+                    >
+                      <Pencil size={13} />
+                      Editar
+                    </button>
+
+                    <button
+                      onClick={() => alternarAtivo(dispositivo)}
+                      className={`inline-flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-lg border transition-all font-medium ${
+                        dispositivo.ativo
+                          ? 'border-amber/30 text-amber hover:bg-amber/10'
+                          : 'border-green/30 text-green hover:bg-green/10'
+                      }`}
+                    >
+                      <Power size={13} />
+                      {dispositivo.ativo
+                        ? 'Inativar'
+                        : 'Ativar'}
+                    </button>
                   </div>
                 </div>
-
-                <p className="font-mono text-[10px] text-ink-muted/50 truncate border-t border-border pt-3">
-                  {dispositivo.id}
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => abrirEditar(dispositivo)}
-                    className="btn-ghost justify-center text-xs border border-border"
-                  >
-                    <Pencil size={13} />
-                    Editar
-                  </button>
-
-                  <button
-                    onClick={() => alternarAtivo(dispositivo)}
-                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-md border transition-colors ${
-                      dispositivo.ativo
-                        ? 'border-warn/30 text-warn hover:bg-warn/10'
-                        : 'border-green/30 text-green hover:bg-green/10'
-                    }`}
-                  >
-                    <Power size={13} />
-                    {dispositivo.ativo
-                      ? 'Inativar'
-                      : 'Ativar'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </SectionCard>
       )}
 
       {modalAberto && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="w-full max-w-xl bg-surface border border-border rounded-xl shadow-panel">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-white border border-border rounded-xl shadow-lg">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
               <div>
                 <h2 className="text-lg font-semibold text-ink-primary">
                   {form.id
-                    ? 'Editar dispositivo'
-                    : 'Novo dispositivo'}
+                    ? 'Editar Dispositivo'
+                    : 'Novo Dispositivo'}
                 </h2>
 
-                <p className="text-xs text-ink-muted mt-1">
+                <p className="text-sm text-ink-muted mt-1">
                   Cadastre o celular usado pelo tratador no campo.
                 </p>
               </div>
 
               <button
                 onClick={() => setModalAberto(false)}
-                className="w-9 h-9 rounded-md bg-panel border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary"
+                className="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary hover:bg-surface/80 transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 gap-4">
               <div>
-                <label className="text-xs text-ink-muted">
+                <label className="text-sm font-medium text-ink-primary">
                   Fazenda
                 </label>
 
@@ -502,9 +526,9 @@ export default function DispositivosPage() {
                       fazenda_id: e.target.value,
                     })
                   }
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
-                  <option value="">Selecione</option>
+                  <option value="">Selecione uma fazenda</option>
 
                   {fazendas.map((fazenda) => (
                     <option
@@ -518,8 +542,8 @@ export default function DispositivosPage() {
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
-                  Nome do dispositivo
+                <label className="text-sm font-medium text-ink-primary">
+                  Nome do Dispositivo
                 </label>
 
                 <input
@@ -531,13 +555,13 @@ export default function DispositivosPage() {
                     })
                   }
                   placeholder="Celular João"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
-                  Nome do tratador
+                <label className="text-sm font-medium text-ink-primary">
+                  Nome do Tratador
                 </label>
 
                 <input
@@ -549,17 +573,17 @@ export default function DispositivosPage() {
                     })
                   }
                   placeholder="João da Silva"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
               </div>
 
               {!form.id && (
                 <div>
-                  <label className="text-xs text-ink-muted">
-                    Código interno do dispositivo
+                  <label className="text-sm font-medium text-ink-primary">
+                    Código Interno do Dispositivo
                   </label>
 
-                  <div className="mt-1 flex gap-2">
+                  <div className="mt-2 flex gap-2">
                     <input
                       value={form.device_secret}
                       onChange={(e) =>
@@ -570,7 +594,7 @@ export default function DispositivosPage() {
                         })
                       }
                       placeholder="DEV-123456"
-                      className="flex-1 px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary font-mono focus:outline-none focus:border-green/50"
+                      className="flex-1 px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary font-mono focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                     />
 
                     <button
@@ -580,21 +604,20 @@ export default function DispositivosPage() {
                           device_secret: gerarDeviceSecret(),
                         })
                       }
-                      className="px-3 py-2 rounded-md border border-border text-xs text-ink-secondary hover:text-ink-primary flex items-center gap-2"
+                      className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface transition-colors flex items-center gap-2"
                     >
-                      <KeyRound size={13} />
+                      <KeyRound size={14} />
                       Gerar
                     </button>
                   </div>
 
-                  <p className="text-xs text-ink-muted mt-2">
-                    Esse código será configurado no celular do
-                    tratador uma única vez.
+                  <p className="text-sm text-ink-muted mt-2">
+                    Esse código será configurado no celular do tratador uma única vez.
                   </p>
                 </div>
               )}
 
-              <label className="flex items-center gap-2 text-sm text-ink-secondary">
+              <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={form.ativo}
@@ -604,13 +627,13 @@ export default function DispositivosPage() {
                       ativo: e.target.checked,
                     })
                   }
-                  className="accent-green"
+                  className="accent-green rounded"
                 />
-                Dispositivo ativo
+                <span className="font-medium">Dispositivo ativo</span>
               </label>
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface/30">
               <button
                 onClick={() => setModalAberto(false)}
                 className="btn-ghost"
@@ -626,7 +649,7 @@ export default function DispositivosPage() {
                 <Save size={14} />
                 {salvando
                   ? 'Salvando...'
-                  : 'Salvar dispositivo'}
+                  : 'Salvar Dispositivo'}
               </button>
             </div>
           </div>

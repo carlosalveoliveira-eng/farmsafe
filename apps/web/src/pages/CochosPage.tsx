@@ -7,10 +7,17 @@ import {
   Power,
   X,
   Save,
+  Package,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react'
 
 import { supabase, type Cocho, type Fazenda, type Lote, type Retiro } from '../services/supabase'
-import PageHeader from '../components/PageHeader'
+import PageHeader from '../components/ui/PageHeader'
+import StatCard from '../components/ui/StatCard'
+import SectionCard from '../components/ui/SectionCard'
+import StatusBadge from '../components/ui/StatusBadge'
+import EmptyState from '../components/ui/EmptyState'
 import QRCodeCard from '../components/QRCodeCard'
 import { getEmpresaUsuario } from '../services/auth'
 
@@ -103,6 +110,12 @@ export default function CochosPage() {
         c.tipo_sal?.toLowerCase().includes(search.toLowerCase())
       )
     : cochos
+
+  const contadores = {
+    total: cochos.length,
+    ativos: cochos.filter((c) => c.ativo).length,
+    inativos: cochos.filter((c) => !c.ativo).length,
+  }
 
   function abrirNovo() {
     setForm(formInicial)
@@ -240,17 +253,15 @@ export default function CochosPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Cochos"
-        subtitle={`${cochos.length} cocho${
-          cochos.length !== 1 ? 's' : ''
-        } cadastrado${cochos.length !== 1 ? 's' : ''}`}
+        description="Gestão operacional e rastreabilidade dos cochos da fazenda"
         action={
           <div className="flex items-center gap-2">
             <button onClick={abrirNovo} className="btn-primary">
               <Plus size={14} />
-              Novo cocho
+              Novo Cocho
             </button>
 
             <button
@@ -268,105 +279,188 @@ export default function CochosPage() {
         }
       />
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="relative flex-1 max-w-xs">
-          <Search
-            size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-          />
-
-          <input
-            type="text"
-            placeholder="Buscar cocho, lote, tipo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-4 py-2 bg-surface border border-border rounded-md text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 transition-colors"
-          />
-        </div>
-
-        <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={apenasAtivos}
-            onChange={(e) => setApenasAtivos(e.target.checked)}
-            className="accent-green"
-          />
-          Apenas ativos
-        </label>
-
-        <span className="ml-auto text-xs text-ink-muted font-mono">
-          {filtered.length} resultado
-          {filtered.length !== 1 ? 's' : ''}
-        </span>
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4">
+        <StatCard
+          title="Total de Cochos"
+          value={contadores.total}
+          icon={Package}
+          color="bg-blue/10 text-blue"
+        />
+        <StatCard
+          title="Cochos Ativos"
+          value={contadores.ativos}
+          icon={CheckCircle2}
+          color="bg-green/10 text-green"
+        />
+        <StatCard
+          title="Cochos Inativos"
+          value={contadores.inativos}
+          icon={AlertCircle}
+          color="bg-amber/10 text-amber"
+        />
       </div>
 
+      <SectionCard title="Filtros e Busca">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+            />
+
+            <input
+              type="text"
+              placeholder="Buscar por nome, código, lote, tipo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer select-none hover:text-ink-primary transition-colors">
+            <input
+              type="checkbox"
+              checked={apenasAtivos}
+              onChange={(e) => setApenasAtivos(e.target.checked)}
+              className="accent-green rounded"
+            />
+            Apenas ativos
+          </label>
+
+          <span className="ml-auto text-sm text-ink-muted font-mono">
+            {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </SectionCard>
+
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="w-6 h-6 border-2 border-green/30 border-t-green rounded-full animate-spin" />
-        </div>
+        <SectionCard>
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
+          </div>
+        </SectionCard>
       ) : filtered.length === 0 ? (
-        <div className="py-24 text-center text-ink-muted text-sm">
-          {search
-            ? 'Nenhum cocho encontrado para esta busca.'
-            : 'Nenhum cocho cadastrado.'}
-        </div>
+        <EmptyState
+          title={search ? 'Nenhum cocho encontrado' : 'Nenhum cocho cadastrado'}
+          description={
+            search
+              ? 'Nenhum cocho atende aos critérios de busca.'
+              : 'Comece adicionando um novo cocho à sua fazenda.'
+          }
+        />
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filtered.map((cocho) => (
-            <div key={cocho.id} className="flex flex-col gap-2">
-              <QRCodeCard cocho={cocho} />
+        <SectionCard title="Lista de Cochos">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((cocho) => (
+              <div
+                key={cocho.id}
+                className="border border-border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+              >
+                <div className="mb-4">
+                  <QRCodeCard cocho={cocho} />
+                </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => abrirEditar(cocho)}
-                  className="btn-ghost justify-center text-xs border border-border"
-                >
-                  <Pencil size={13} />
-                  Editar
-                </button>
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <p className="text-xs text-ink-muted">Nome</p>
+                    <p className="text-sm font-semibold text-ink-primary mt-1">
+                      {cocho.nome}
+                    </p>
+                  </div>
 
-                <button
-                  onClick={() => alternarAtivo(cocho)}
-                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-md border transition-colors ${
-                    cocho.ativo
-                      ? 'border-warn/30 text-warn hover:bg-warn/10'
-                      : 'border-green/30 text-green hover:bg-green/10'
-                  }`}
-                >
-                  <Power size={13} />
-                  {cocho.ativo ? 'Inativar' : 'Ativar'}
-                </button>
+                  <div>
+                    <p className="text-xs text-ink-muted">Código QR</p>
+                    <p className="text-xs font-mono text-ink-primary mt-1">
+                      {cocho.codigo_qr}
+                    </p>
+                  </div>
+
+                  {cocho.fazenda?.nome && (
+                    <div>
+                      <p className="text-xs text-ink-muted">Fazenda</p>
+                      <p className="text-sm text-ink-primary mt-1">
+                        {cocho.fazenda.nome}
+                      </p>
+                    </div>
+                  )}
+
+                  {cocho.lote?.nome && (
+                    <div>
+                      <p className="text-xs text-ink-muted">Lote</p>
+                      <p className="text-sm text-ink-primary mt-1">
+                        {cocho.lote.nome}
+                      </p>
+                    </div>
+                  )}
+
+                  {cocho.capacidade_kg && (
+                    <div>
+                      <p className="text-xs text-ink-muted">Capacidade</p>
+                      <p className="text-sm text-ink-primary mt-1">
+                        {cocho.capacidade_kg} kg
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-border/50">
+                  <StatusBadge status={cocho.ativo ? 'ok' : 'muted'}>
+                    {cocho.ativo ? 'Ativo' : 'Inativo'}
+                  </StatusBadge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button
+                    onClick={() => abrirEditar(cocho)}
+                    className="btn-ghost justify-center text-xs py-2 border border-border"
+                  >
+                    <Pencil size={13} />
+                    Editar
+                  </button>
+
+                  <button
+                    onClick={() => alternarAtivo(cocho)}
+                    className={`inline-flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-lg border transition-all font-medium ${
+                      cocho.ativo
+                        ? 'border-amber/30 text-amber hover:bg-amber/10'
+                        : 'border-green/30 text-green hover:bg-green/10'
+                    }`}
+                  >
+                    <Power size={13} />
+                    {cocho.ativo ? 'Inativar' : 'Ativar'}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </SectionCard>
       )}
 
       {modalAberto && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="w-full max-w-2xl bg-surface border border-border rounded-xl shadow-panel">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white border border-border rounded-xl shadow-lg">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
               <div>
                 <h2 className="text-lg font-semibold text-ink-primary">
-                  {form.id ? 'Editar cocho' : 'Novo cocho'}
+                  {form.id ? 'Editar Cocho' : 'Novo Cocho'}
                 </h2>
-                <p className="text-xs text-ink-muted mt-1">
+                <p className="text-sm text-ink-muted mt-1">
                   Cadastre o cocho e gere o código usado pelo QR Code.
                 </p>
               </div>
 
               <button
                 onClick={() => setModalAberto(false)}
-                className="w-9 h-9 rounded-md bg-panel border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary"
+                className="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary hover:bg-surface/80 transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-ink-muted">
-                  Nome do cocho
+              <div className="md:col-span-1">
+                <label className="text-sm font-medium text-ink-primary">
+                  Nome do Cocho
                 </label>
                 <input
                   value={form.nome}
@@ -374,26 +468,26 @@ export default function CochosPage() {
                     setForm({ ...form, nome: e.target.value })
                   }
                   placeholder="Cocho 001"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
+                <label className="text-sm font-medium text-ink-primary">
                   Código QR
                 </label>
 
-                <div className="mt-1 flex gap-2">
+                <div className="mt-2 flex gap-2">
                   <input
                     value={form.codigo_qr}
                     readOnly
                     placeholder="Gerado automaticamente"
-                    className="flex-1 px-3 py-2 bg-canvas/60 border border-border rounded-md text-sm text-ink-muted font-mono cursor-not-allowed"
+                    className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-sm text-ink-muted font-mono cursor-not-allowed"
                   />
 
                   <button
                     onClick={gerarCodigoAutomatico}
-                    className="px-3 py-2 rounded-md border border-border text-xs text-ink-secondary hover:text-ink-primary"
+                    className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface transition-colors"
                   >
                     Gerar
                   </button>
@@ -401,7 +495,7 @@ export default function CochosPage() {
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
+                <label className="text-sm font-medium text-ink-primary">
                   Fazenda
                 </label>
                 <select
@@ -413,9 +507,9 @@ export default function CochosPage() {
                       codigo_qr: '',
                     })
                   }
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
-                  <option value="">Selecione</option>
+                  <option value="">Selecione uma fazenda</option>
                   {fazendas.map((fazenda) => (
                     <option key={fazenda.id} value={fazenda.id}>
                       {fazenda.nome}
@@ -425,7 +519,7 @@ export default function CochosPage() {
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
+                <label className="text-sm font-medium text-ink-primary">
                   Retiro
                 </label>
                 <select
@@ -436,7 +530,7 @@ export default function CochosPage() {
                       retiro_id: e.target.value,
                     })
                   }
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
                   <option value="">Sem retiro</option>
                   {retiros
@@ -454,7 +548,7 @@ export default function CochosPage() {
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
+                <label className="text-sm font-medium text-ink-primary">
                   Lote
                 </label>
                 <select
@@ -465,7 +559,7 @@ export default function CochosPage() {
                       lote_id: e.target.value,
                     })
                   }
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
                   <option value="">Sem lote</option>
                   {lotes
@@ -483,8 +577,8 @@ export default function CochosPage() {
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
-                  Tipo de sal/abastecimento
+                <label className="text-sm font-medium text-ink-primary">
+                  Tipo de Sal/Abastecimento
                 </label>
                 <input
                   value={form.tipo_sal}
@@ -495,13 +589,13 @@ export default function CochosPage() {
                     })
                   }
                   placeholder="sal_mineral"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-ink-muted">
-                  Capacidade kg
+                <label className="text-sm font-medium text-ink-primary">
+                  Capacidade (kg)
                 </label>
                 <input
                   value={form.capacidade_kg}
@@ -513,11 +607,11 @@ export default function CochosPage() {
                   }
                   type="number"
                   placeholder="100"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-ink-secondary mt-5">
+              <label className="flex items-center gap-2 text-sm text-ink-secondary mt-2 md:col-span-1">
                 <input
                   type="checkbox"
                   checked={form.ativo}
@@ -527,13 +621,13 @@ export default function CochosPage() {
                       ativo: e.target.checked,
                     })
                   }
-                  className="accent-green"
+                  className="accent-green rounded"
                 />
-                Cocho ativo
+                <span className="font-medium">Cocho ativo</span>
               </label>
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-surface/30">
               <button
                 onClick={() => setModalAberto(false)}
                 className="btn-ghost"
@@ -547,7 +641,7 @@ export default function CochosPage() {
                 className="btn-primary"
               >
                 <Save size={14} />
-                {salvando ? 'Salvando...' : 'Salvar cocho'}
+                {salvando ? 'Salvando...' : 'Salvar Cocho'}
               </button>
             </div>
           </div>

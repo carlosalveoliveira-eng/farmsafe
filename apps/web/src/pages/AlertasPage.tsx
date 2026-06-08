@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, RefreshCw, CheckCircle2, Clock } from 'lucide-react'
+import { AlertTriangle, RefreshCw, CheckCircle2, Clock, AlertCircle, CheckCheck } from 'lucide-react'
 
 import { supabase } from '../services/supabase'
-import PageHeader from '../components/PageHeader'
+import PageHeader from '../components/ui/PageHeader'
+import StatCard from '../components/ui/StatCard'
+import SectionCard from '../components/ui/SectionCard'
+import StatusBadge from '../components/ui/StatusBadge'
+import EmptyState from '../components/ui/EmptyState'
 
 type StatusCocho = {
   id: string
@@ -126,10 +130,10 @@ export default function AlertasPage() {
   }, [rows])
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Alertas operacionais"
-        subtitle="Monitore cochos sem abastecimento e pontos críticos"
+        title="Alertas Operacionais"
+        description="Central de monitoramento de cochos e pontos críticos da operação"
         action={
           <button onClick={load} disabled={loading} className="btn-ghost">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -138,104 +142,148 @@ export default function AlertasPage() {
         }
       />
 
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { key: 'todos', label: 'Todos' },
-          { key: 'ok', label: 'OK' },
-          { key: 'atencao', label: 'Atenção' },
-          { key: 'atrasado', label: 'Atrasados' },
-          { key: 'sem_registro', label: 'Sem registro' },
+          { key: 'todos', label: 'Total', icon: AlertCircle, color: 'bg-blue/10 text-blue' },
+          { key: 'ok', label: 'Operacionais', icon: CheckCheck, color: 'bg-green/10 text-green' },
+          { key: 'atencao', label: 'Em Atenção', icon: Clock, color: 'bg-amber/10 text-amber' },
+          { key: 'atrasado', label: 'Atrasados', icon: AlertTriangle, color: 'bg-red/10 text-red' },
+          { key: 'sem_registro', label: 'Sem Registros', icon: AlertCircle, color: 'bg-slate/10 text-slate' },
         ].map((item) => (
           <button
             key={item.key}
             onClick={() => setFiltro(item.key as typeof filtro)}
-            className={`fs-card p-4 text-left transition-colors ${
-              filtro === item.key ? 'border-green/40' : ''
+            className={`transition-all duration-200 ${
+              filtro === item.key
+                ? 'ring-2 ring-offset-2 ring-green/40'
+                : 'hover:shadow-md'
             }`}
           >
-            <p className="text-xs text-ink-muted">{item.label}</p>
-            <p className="text-2xl font-semibold text-ink-primary mt-2">
-              {contadores[item.key as keyof typeof contadores]}
-            </p>
+            <StatCard
+              title={item.label}
+              value={contadores[item.key as keyof typeof contadores]}
+              icon={item.icon}
+              color={item.color}
+            />
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="w-6 h-6 border-2 border-green/30 border-t-green rounded-full animate-spin" />
-        </div>
+        <SectionCard>
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
+          </div>
+        </SectionCard>
       ) : filtrados.length === 0 ? (
-        <div className="py-24 text-center text-ink-muted text-sm">
-          Nenhum alerta encontrado.
-        </div>
+        <EmptyState
+          title="Nenhum alerta encontrado"
+          description={
+            filtro === 'todos'
+              ? 'Todos os cochos estão operacionais'
+              : `Nenhum cocho com status "${filtro}"`
+          }
+        />
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {filtrados.map((cocho) => {
-            const info = statusInfo(cocho.status_operacional)
-            const Icon = info.icon
+        <SectionCard title="Lista de Alertas">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filtrados.map((cocho) => {
+              const info = statusInfo(cocho.status_operacional)
+              const Icon = info.icon
 
-            return (
-              <div
-                key={cocho.id}
-                className={`fs-card p-5 ${info.card}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Icon size={16} className="text-green" />
-                      <h3 className="text-ink-primary font-semibold">
-                        {cocho.nome}
-                      </h3>
+              return (
+                <div
+                  key={cocho.id}
+                  className="border border-border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className={`p-2 rounded-lg ${
+                        cocho.status_operacional === 'ok'
+                          ? 'bg-green/10'
+                          : cocho.status_operacional === 'atencao'
+                          ? 'bg-amber/10'
+                          : cocho.status_operacional === 'atrasado'
+                          ? 'bg-red/10'
+                          : 'bg-slate/10'
+                      }`}>
+                        <Icon size={18} className={
+                          cocho.status_operacional === 'ok'
+                            ? 'text-green'
+                            : cocho.status_operacional === 'atencao'
+                            ? 'text-amber'
+                            : cocho.status_operacional === 'atrasado'
+                            ? 'text-red'
+                            : 'text-slate'
+                        } />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold text-ink-primary truncate">
+                          {cocho.nome}
+                        </h3>
+                        <p className="font-mono text-xs text-ink-muted mt-1 truncate">
+                          {cocho.codigo_qr}
+                        </p>
+                      </div>
                     </div>
 
-                    <p className="font-mono text-xs text-ink-muted mt-1">
-                      {cocho.codigo_qr}
-                    </p>
+                    <StatusBadge status={
+                      cocho.status_operacional === 'ok'
+                        ? 'ok'
+                        : cocho.status_operacional === 'atencao'
+                        ? 'warn'
+                        : cocho.status_operacional === 'atrasado'
+                        ? 'err'
+                        : 'muted'
+                    }>
+                      {info.label}
+                    </StatusBadge>
                   </div>
 
-                  <span className={info.className}>{info.label}</span>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-surface rounded-lg p-3 border border-border/50">
+                      <p className="text-xs font-medium text-ink-muted uppercase tracking-wider">Último abastecimento</p>
+                      <p className="text-sm text-ink-primary mt-2 font-semibold">
+                        {fmtData(cocho.ultimo_abastecimento)}
+                      </p>
+                    </div>
+
+                    <div className="bg-surface rounded-lg p-3 border border-border/50">
+                      <p className="text-xs font-medium text-ink-muted uppercase tracking-wider">Tempo sem abastecer</p>
+                      <p className="text-sm text-ink-primary mt-2 font-semibold">
+                        {fmtHoras(cocho.horas_sem_abastecer)}
+                      </p>
+                    </div>
+
+                    <div className="bg-surface rounded-lg p-3 border border-border/50">
+                      <p className="text-xs font-medium text-ink-muted uppercase tracking-wider">Total kg</p>
+                      <p className="text-sm text-ink-primary mt-2 font-semibold">
+                        {Number(cocho.total_kg ?? 0).toLocaleString('pt-BR')} kg
+                      </p>
+                    </div>
+
+                    <div className="bg-surface rounded-lg p-3 border border-border/50">
+                      <p className="text-xs font-medium text-ink-muted uppercase tracking-wider">Registros</p>
+                      <p className="text-sm text-ink-primary mt-2 font-semibold">
+                        {cocho.total_registros}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-border/50">
+                    <p className="text-xs text-ink-muted">
+                      <span className="font-medium">Localização:</span> {
+                        [cocho.fazenda_nome, cocho.retiro_nome, cocho.lote_nome]
+                          .filter(Boolean)
+                          .join(' · ') || 'Sem localização vinculada'
+                      }
+                    </p>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 mt-5">
-                  <div className="bg-surface border border-border rounded-lg p-3">
-                    <p className="text-xs text-ink-muted">Último abastecimento</p>
-                    <p className="text-sm text-ink-primary mt-1">
-                      {fmtData(cocho.ultimo_abastecimento)}
-                    </p>
-                  </div>
-
-                  <div className="bg-surface border border-border rounded-lg p-3">
-                    <p className="text-xs text-ink-muted">Tempo sem abastecer</p>
-                    <p className="text-sm text-ink-primary mt-1">
-                      {fmtHoras(cocho.horas_sem_abastecer)}
-                    </p>
-                  </div>
-
-                  <div className="bg-surface border border-border rounded-lg p-3">
-                    <p className="text-xs text-ink-muted">Total kg</p>
-                    <p className="text-sm text-ink-primary mt-1">
-                      {Number(cocho.total_kg ?? 0).toLocaleString('pt-BR')} kg
-                    </p>
-                  </div>
-
-                  <div className="bg-surface border border-border rounded-lg p-3">
-                    <p className="text-xs text-ink-muted">Registros</p>
-                    <p className="text-sm text-ink-primary mt-1">
-                      {cocho.total_registros}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-ink-muted mt-4">
-                  {[cocho.fazenda_nome, cocho.retiro_nome, cocho.lote_nome]
-                    .filter(Boolean)
-                    .join(' · ') || 'Sem localização vinculada'}
-                </p>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </SectionCard>
       )}
     </div>
   )

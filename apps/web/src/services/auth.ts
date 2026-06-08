@@ -32,3 +32,9 @@ export async function getEmpresaUsuario() {
 
   return data
 }
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') {
+    window.location.href = '/login'
+  }
+})

@@ -9,46 +9,25 @@ export default {
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
-        canvas: '#0b1110',
-        surface: '#111a17',
-        panel: '#17231f',
-        border: '#26352f',
+        canvas: '#F3F1EB',
+        surface: '#ECE8DE',
+        panel: '#FAF8F3',
+        border: '#DDD8CC',
 
-        green: {
-          DEFAULT: '#2f7d46',
-          light: '#4fa866',
-          dark: '#1f5c33',
-          subtle: '#13251a',
-        },
+        green: '#2F6B4F',
+        'green-light': '#3D8764',
 
-        earth: {
-          DEFAULT: '#b88746',
-          light: '#d1a66a',
-          dark: '#76542d',
-          subtle: '#24190e',
-        },
+        ok: '#2F6B4F',
+        warn: '#C27C2C',
+        err: '#C24141',
 
         ink: {
-          primary: '#f3f4ec',
-          secondary: '#b5b8a8',
-          muted: '#74796a',
-        },
-
-        ok: {
-          DEFAULT: '#38a169',
-          subtle: '#10281a',
-        },
-
-        warn: {
-          DEFAULT: '#d69e2e',
-          subtle: '#2a1f0a',
-        },
-
-        err: {
-          DEFAULT: '#e53e3e',
-          subtle: '#2a0f0f',
+          primary: '#243126',
+          secondary: '#526055',
+          muted: '#7B847B',
         },
       },
+     
       backgroundImage: {
         noise:
           "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E\")",

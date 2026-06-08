@@ -6,6 +6,7 @@ import {
   Smartphone,
   CalendarDays,
   Trophy,
+  AlertTriangle,
 } from 'lucide-react'
 
 import {
@@ -21,12 +22,21 @@ import {
 } from 'recharts'
 
 import { supabase, type Abastecimento } from '../services/supabase'
-import PageHeader from '../components/PageHeader'
+
+import PageHeader from '../components/ui/PageHeader'
+import SectionCard from '../components/ui/SectionCard'
+import StatCard from '../components/ui/StatCard'
+import EmptyState from '../components/ui/EmptyState'
 
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
+
 type StatusCocho = {
   id: string
-  status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+  status_operacional:
+    | 'ok'
+    | 'atencao'
+    | 'atrasado'
+    | 'sem_registro'
 }
 
 function getInicioPeriodo(periodo: Periodo) {
@@ -53,7 +63,22 @@ function fmtKg(value: number) {
   return `${value.toLocaleString('pt-BR')} kg`
 }
 
-function calcularTempoEntreCochos(registros: Abastecimento[]) {
+function fmtMinutos(minutos: number) {
+  if (!minutos) return '—'
+
+  if (minutos < 60) {
+    return `${minutos} min`
+  }
+
+  const horas = Math.floor(minutos / 60)
+  const resto = minutos % 60
+
+  return `${horas}h ${resto}min`
+}
+
+function calcularTempoEntreCochos(
+  registros: Abastecimento[]
+) {
   const ordenados = [...registros].sort(
     (a, b) =>
       new Date(a.registrado_em).getTime() -
@@ -66,8 +91,13 @@ function calcularTempoEntreCochos(registros: Abastecimento[]) {
     const anterior = ordenados[i - 1]
     const atual = ordenados[i]
 
-    const diaAnterior = new Date(anterior.registrado_em).toDateString()
-    const diaAtual = new Date(atual.registrado_em).toDateString()
+    const diaAnterior = new Date(
+      anterior.registrado_em
+    ).toDateString()
+
+    const diaAtual = new Date(
+      atual.registrado_em
+    ).toDateString()
 
     if (diaAnterior !== diaAtual) continue
 
@@ -85,78 +115,90 @@ function calcularTempoEntreCochos(registros: Abastecimento[]) {
   if (diferencasMinutos.length === 0) {
     return {
       mediaMinutos: 0,
-      menorMinutos: 0,
-      maiorMinutos: 0,
     }
   }
 
-  const total = diferencasMinutos.reduce((acc, item) => acc + item, 0)
+  const total = diferencasMinutos.reduce(
+    (acc, item) => acc + item,
+    0
+  )
 
   return {
-    mediaMinutos: Math.round(total / diferencasMinutos.length),
-    menorMinutos: Math.min(...diferencasMinutos),
-    maiorMinutos: Math.max(...diferencasMinutos),
+    mediaMinutos: Math.round(
+      total / diferencasMinutos.length
+    ),
   }
-}
-
-function fmtMinutos(minutos: number) {
-  if (!minutos) return '—'
-
-  if (minutos < 60) {
-    return `${minutos} min`
-  }
-
-  const horas = Math.floor(minutos / 60)
-  const resto = minutos % 60
-
-  return `${horas}h ${resto}min`
 }
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
+
   const [periodo, setPeriodo] =
     useState<Periodo>('7d')
-  const [statusCochos, setStatusCochos] = useState<StatusCocho[]>([])
-  const [rows, setRows] = useState<Abastecimento[]>([])
+
+  const [rows, setRows] = useState<
+    Abastecimento[]
+  >([])
+
+  const [statusCochos, setStatusCochos] =
+    useState<StatusCocho[]>([])
 
   async function load() {
     setLoading(true)
 
-    let q = supabase
-      .from('abastecimentos')
-      .select(
+    try {
+      let q = supabase
+        .from('abastecimentos')
+        .select(
+          `
+          *,
+          cocho:cochos(nome),
+          dispositivo:dispositivos(nome,tratador_nome)
         `
-        *,
-        cocho:cochos(nome),
-        dispositivo:dispositivos(nome,tratador_nome)
-      `
+        )
+        .order('registrado_em', {
+          ascending: true,
+        })
+
+      const inicio =
+        getInicioPeriodo(periodo)
+
+      if (inicio) {
+        q = q.gte(
+          'registrado_em',
+          inicio
+        )
+      }
+
+      const [
+        { data, error },
+        { data: statusData },
+      ] = await Promise.all([
+        q,
+        supabase
+          .from('vw_status_cochos')
+          .select(
+            'id,status_operacional'
+          )
+          .eq('ativo', true),
+      ])
+
+      if (error) {
+        console.error(error)
+        setRows([])
+      } else {
+        setRows(
+          (data as Abastecimento[]) ?? []
+        )
+      }
+
+      setStatusCochos(
+        (statusData as StatusCocho[]) ??
+          []
       )
-      .order('registrado_em', {
-        ascending: true,
-      })
-    const { data: statusData } = await supabase
-      .from('vw_status_cochos')
-      .select('id,status_operacional')
-      .eq('ativo', true)
-
-    setStatusCochos((statusData as StatusCocho[]) ?? [])
-
-    const inicio = getInicioPeriodo(periodo)
-
-    if (inicio) {
-      q = q.gte('registrado_em', inicio)
+    } finally {
+      setLoading(false)
     }
-
-    const { data, error } = await q
-
-    if (error) {
-      console.error(error)
-      setRows([])
-    } else {
-      setRows((data as Abastecimento[]) ?? [])
-    }
-
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -193,7 +235,10 @@ export default function DashboardPage() {
         r.dispositivo?.nome ||
         'Sem nome'
 
-      map.set(nome, (map.get(nome) ?? 0) + 1)
+      map.set(
+        nome,
+        (map.get(nome) ?? 0) + 1
+      )
     })
 
     return Array.from(map.entries())
@@ -253,56 +298,44 @@ export default function DashboardPage() {
     )
   }, [rows])
 
-  const porTipo = useMemo(() => {
-    const map = new Map<
-      string,
-      number
-    >()
+  const tempoEntreCochos =
+    calcularTempoEntreCochos(rows)
 
-    rows.forEach((r) => {
-      const tipo =
-        r.tipo_abastecimento ||
-        'Sem tipo'
-
-      map.set(
-        tipo,
-        (map.get(tipo) ?? 0) +
-          (r.quantidade_kg ?? 0)
-      )
-    })
-
-    return Array.from(map.entries()).map(
-      ([tipo, total]) => ({
-        tipo,
-        total,
-      })
-    )
-  }, [rows])
-
-  const topTratador =
-    rankingTratadores[0]
-
-  const topCocho =
-    rankingCochos[0]
-
-  const tempoEntreCochos = calcularTempoEntreCochos(rows)
   const alertasResumo = useMemo(() => {
     return {
-      ok: statusCochos.filter((c) => c.status_operacional === 'ok').length,
-      atencao: statusCochos.filter((c) => c.status_operacional === 'atencao').length,
-      atrasado: statusCochos.filter((c) => c.status_operacional === 'atrasado').length,
-      semRegistro: statusCochos.filter((c) => c.status_operacional === 'sem_registro').length,
+      ok: statusCochos.filter(
+        (c) =>
+          c.status_operacional === 'ok'
+      ).length,
+
+      atencao: statusCochos.filter(
+        (c) =>
+          c.status_operacional ===
+          'atencao'
+      ).length,
+
+      atrasado: statusCochos.filter(
+        (c) =>
+          c.status_operacional ===
+          'atrasado'
+      ).length,
+
+      semRegistro: statusCochos.filter(
+        (c) =>
+          c.status_operacional ===
+          'sem_registro'
+      ).length,
     }
   }, [statusCochos])
 
   return (
-    <div>
+    <div className="space-y-10">
       <PageHeader
         title="Dashboard"
-        subtitle="Visão operacional em tempo real"
+        description="Visão operacional da fazenda em tempo real"
       />
 
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-3 flex-wrap">
         {[
           {
             value: 'hoje',
@@ -328,225 +361,136 @@ export default function DashboardPage() {
                 item.value as Periodo
               )
             }
-            className={`px-3 py-1 text-xs rounded border transition-colors ${
+            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all ${
               periodo === item.value
-                ? 'bg-green/10 text-green border-green/20'
-                : 'bg-surface text-ink-muted border-border hover:text-ink-primary'
+                ? 'bg-green text-white border-green'
+                : 'bg-panel text-ink-secondary border-border hover:border-green hover:text-green'
             }`}
           >
             {item.label}
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    <div className="fs-card p-4 border-green/20">
-      <p className="text-xs text-ink-muted">Cochos OK</p>
-      <p className="text-2xl font-semibold text-green mt-2">{alertasResumo.ok}</p>
-    </div>
-
-    <div className="fs-card p-4 border-warn/30">
-      <p className="text-xs text-ink-muted">Em atenção</p>
-      <p className="text-2xl font-semibold text-warn mt-2">{alertasResumo.atencao}</p>
-    </div>
-
-    <div className="fs-card p-4 border-err/30">
-      <p className="text-xs text-ink-muted">Atrasados</p>
-      <p className="text-2xl font-semibold text-err mt-2">{alertasResumo.atrasado}</p>
-    </div>
-
-    <div className="fs-card p-4 border-border">
-      <p className="text-xs text-ink-muted">Sem registro</p>
-      <p className="text-2xl font-semibold text-ink-primary mt-2">{alertasResumo.semRegistro}</p>
-    </div>
-  </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="w-6 h-6 border-2 border-green/30 border-t-green rounded-full animate-spin" />
+        <div className="flex items-center justify-center py-32">
+          <div className="w-8 h-8 border-4 border-green/20 border-t-green rounded-full animate-spin" />
         </div>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title="Nenhum abastecimento encontrado"
+          description="Ainda não existem dados para este período."
+        />
       ) : (
-        <>
-          <div className="grid grid-cols-2 xl:grid-cols-7 gap-4 mb-6">
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <Flame
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Volume
-                </span>
-              </div>
+        <div className="space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
+            <StatCard
+              title="Cochos OK"
+              value={alertasResumo.ok}
+              icon={Beef}
+            />
 
-              <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                {fmtKg(totalKg)}
-              </p>
+            <StatCard
+              title="Em atenção"
+              value={alertasResumo.atencao}
+              icon={CalendarDays}
+            />
 
-              <p className="mt-1 text-xs text-ink-muted">
-                Total abastecido
-              </p>
-            </div>
+            <StatCard
+              title="Atrasados"
+              value={alertasResumo.atrasado}
+              icon={AlertTriangle}
+            />
 
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <Beef
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Cochos
-                </span>
-              </div>
-
-              <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                {totalCochos}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                Cochos abastecidos
-              </p>
-            </div>
-
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <BarChart3
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Média
-                </span>
-              </div>
-
-              <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                {fmtKg(
-                  Number(
-                    mediaKgPorCocho.toFixed(1)
-                  )
-                )}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                Média por cocho
-              </p>
-            </div>
-
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <CalendarDays
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Registros
-                </span>
-              </div>
-
-              <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                {totalRegistros}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                Total operacional
-              </p>
-            </div>
-            
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <CalendarDays size={16} className="text-green" />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Tempo médio
-                </span>
-              </div>
-
-              <p className="mt-4 text-2xl font-semibold text-ink-primary">
-                {fmtMinutos(tempoEntreCochos.mediaMinutos)}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                Entre cochos
-              </p>
-            </div>
-
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <Smartphone
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Top tratador
-                </span>
-              </div>
-
-              <p className="mt-4 text-sm font-semibold text-ink-primary truncate">
-                {topTratador?.nome ||
-                  '—'}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                {topTratador?.total ?? 0}{' '}
-                registros
-              </p>
-            </div>
-
-            <div className="fs-card p-4">
-              <div className="flex items-center justify-between">
-                <Trophy
-                  size={16}
-                  className="text-green"
-                />
-                <span className="text-[10px] text-ink-muted uppercase">
-                  Top cocho
-                </span>
-              </div>
-
-              <p className="mt-4 text-sm font-semibold text-ink-primary truncate">
-                {topCocho?.nome || '—'}
-              </p>
-
-              <p className="mt-1 text-xs text-ink-muted">
-                {fmtKg(
-                  topCocho?.total ?? 0
-                )}
-              </p>
-            </div>
+            <StatCard
+              title="Sem registro"
+              value={alertasResumo.semRegistro}
+              icon={Smartphone}
+            />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-            <div className="fs-card p-5">
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-ink-primary">
-                  Linha do tempo
-                </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-7">
+            <StatCard
+              title="Total abastecido"
+              value={fmtKg(totalKg)}
+              icon={Flame}
+            />
 
-                <p className="text-xs text-ink-muted mt-1">
-                  Volume abastecido por dia
-                </p>
-              </div>
+            <StatCard
+              title="Cochos abastecidos"
+              value={totalCochos}
+              icon={Beef}
+            />
 
-              <div className="h-[320px] min-w-0">
+            <StatCard
+              title="Média por cocho"
+              value={fmtKg(
+                Number(
+                  mediaKgPorCocho.toFixed(1)
+                )
+              )}
+              icon={BarChart3}
+            />
+
+            <StatCard
+              title="Total de registros"
+              value={totalRegistros}
+              icon={CalendarDays}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-7">
+            <StatCard
+              title="Tempo médio"
+              value={fmtMinutos(
+                tempoEntreCochos.mediaMinutos
+              )}
+              icon={CalendarDays}
+            />
+
+            <StatCard
+              title="Top tratador"
+              value={
+                rankingTratadores[0]
+                  ?.nome || '—'
+              }
+              icon={Smartphone}
+            />
+
+            <StatCard
+              title="Top cocho"
+              value={
+                rankingCochos[0]?.nome ||
+                '—'
+              }
+              icon={Trophy}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-7">
+            <SectionCard title="Linha do tempo operacional">
+              <div className="h-80">
                 <ResponsiveContainer
                   width="100%"
-                  height={320}
+                  height="100%"
                 >
                   <LineChart
                     data={linhaTempo}
                   >
                     <CartesianGrid
-                      stroke="#2a2d1f"
+                      stroke="#DDD8CC"
                       vertical={false}
                     />
 
                     <XAxis
                       dataKey="dia"
-                      stroke="#5a5749"
-                      fontSize={11}
+                      stroke="#7B847B"
+                      fontSize={12}
                     />
 
                     <YAxis
-                      stroke="#5a5749"
-                      fontSize={11}
+                      stroke="#7B847B"
+                      fontSize={12}
                     />
 
                     <Tooltip />
@@ -554,149 +498,52 @@ export default function DashboardPage() {
                     <Line
                       type="monotone"
                       dataKey="total"
-                      stroke="#4ade80"
-                      strokeWidth={2}
+                      stroke="#2F6B4F"
+                      strokeWidth={3}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </SectionCard>
 
-            <div className="fs-card p-5">
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-ink-primary">
-                  Ranking de cochos
-                </h3>
-
-                <p className="text-xs text-ink-muted mt-1">
-                  Volume total por cocho
-                </p>
-              </div>
-
-              <div className="h-[320px] min-w-0">
+            <SectionCard title="Ranking de cochos">
+              <div className="h-80">
                 <ResponsiveContainer
                   width="100%"
-                  height={320}
+                  height="100%"
                 >
                   <BarChart
                     data={rankingCochos}
                   >
                     <CartesianGrid
-                      stroke="#2a2d1f"
+                      stroke="#DDD8CC"
                       vertical={false}
                     />
 
                     <XAxis
                       dataKey="nome"
-                      stroke="#5a5749"
-                      fontSize={11}
+                      stroke="#7B847B"
+                      fontSize={12}
                     />
 
                     <YAxis
-                      stroke="#5a5749"
-                      fontSize={11}
+                      stroke="#7B847B"
+                      fontSize={12}
                     />
 
                     <Tooltip />
 
                     <Bar
                       dataKey="total"
-                      fill="#4ade80"
-                      radius={[
-                        4, 4, 0, 0,
-                      ]}
+                      fill="#2F6B4F"
+                      radius={[8, 8, 0, 0]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </SectionCard>
           </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div className="fs-card p-5">
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-ink-primary">
-                  Produtividade por tratador
-                </h3>
-
-                <p className="text-xs text-ink-muted mt-1">
-                  Quantidade de registros
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {rankingTratadores
-                  .slice(0, 5)
-                  .map((item, idx) => (
-                    <div
-                      key={item.nome}
-                      className="flex items-center gap-4"
-                    >
-                      <div className="w-7 h-7 rounded-md bg-green/10 flex items-center justify-center text-xs text-green font-semibold">
-                        {idx + 1}
-                      </div>
-
-                      <div className="flex-1">
-                        <p className="text-sm text-ink-primary">
-                          {item.nome}
-                        </p>
-
-                        <div className="w-full h-2 rounded-full bg-surface mt-2 overflow-hidden">
-                          <div
-                            className="h-full bg-green rounded-full"
-                            style={{
-                              width: `${
-                                (item.total /
-                                  (rankingTratadores[0]
-                                    ?.total ||
-                                    1)) *
-                                100
-                              }%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <span className="text-xs text-ink-muted font-mono">
-                        {item.total}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            <div className="fs-card p-5">
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-ink-primary">
-                  Volume por tipo
-                </h3>
-
-                <p className="text-xs text-ink-muted mt-1">
-                  Distribuição operacional
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {porTipo.map((item) => (
-                  <div
-                    key={item.tipo}
-                    className="flex items-center justify-between border-b border-border pb-3"
-                  >
-                    <div>
-                      <p className="text-sm text-ink-primary">
-                        {item.tipo}
-                      </p>
-                    </div>
-
-                    <span className="text-xs text-green font-mono">
-                      {fmtKg(item.total)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   )

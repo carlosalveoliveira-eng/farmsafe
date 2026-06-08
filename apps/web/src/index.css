@@ -4,66 +4,111 @@
 
 @layer base {
   html {
-    background-color: #0e0f0b;
-    color: #f0ead8;
+    background-color: #f3f1eb;
+    color: #1f2a24;
     font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Scrollbar estilizada */
-  ::-webkit-scrollbar        { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track  { background: #0e0f0b; }
-  ::-webkit-scrollbar-thumb  { background: #2a2d1f; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #d4a843; }
+  body {
+    background-color: #f3f1eb;
+    color: #1f2a24;
+  }
+
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #ece8de;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #b8c7bc;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #1f7a4d;
+  }
 }
 
 @layer components {
-  /* Tabela padrão */
   .fs-table {
-    @apply w-full text-sm border-collapse;
+    @apply w-full text-sm border-collapse bg-white;
   }
+
   .fs-table thead tr {
     @apply border-b border-border;
   }
+
   .fs-table thead th {
-    @apply px-4 py-3 text-left text-xs font-mono uppercase tracking-widest text-ink-muted;
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted bg-surface;
   }
+
   .fs-table tbody tr {
-    @apply border-b border-border/50 transition-colors hover:bg-panel/60;
+    @apply border-b border-border/70 transition-colors hover:bg-green/5;
   }
+
   .fs-table tbody td {
     @apply px-4 py-3 text-ink-secondary;
   }
+
   .fs-table tbody td:first-child {
-    @apply text-ink-primary;
+    @apply text-ink-primary font-medium;
   }
 
-  /* Badge de status */
   .badge {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-mono font-medium;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border;
   }
-  .badge-ok   { @apply bg-ok/10 text-ok border border-ok/20; }
-  .badge-warn { @apply bg-warn/10 text-warn border border-warn/20; }
-  .badge-muted { @apply bg-surface text-ink-muted border border-border; }
 
-  /* Card padrão */
+  .badge-ok {
+    @apply bg-ok/10 text-ok border-ok/20;
+  }
+
+  .badge-warn {
+    @apply bg-warn/10 text-warn border-warn/20;
+  }
+
+  .badge-err {
+    @apply bg-err/10 text-err border-err/20;
+  }
+
+  .badge-muted {
+    @apply bg-surface text-ink-muted border-border;
+  }
+
   .fs-card {
-    @apply bg-panel border border-border rounded-lg;
+    @apply bg-white border border-border rounded-xl shadow-sm;
   }
 
-  /* Botão primário */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-green text-canvas text-sm font-semibold rounded-md
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-green text-white text-sm font-semibold rounded-lg
            hover:bg-green-light transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
   }
+
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-4 py-2 text-ink-secondary text-sm
-           hover:text-ink-primary hover:bg-surface transition-colors duration-150 rounded-md;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-ink-secondary text-sm font-medium
+           hover:text-green hover:bg-green/10 transition-colors duration-150 rounded-lg;
   }
 
-  /* Stat card */
   .stat-card {
     @apply fs-card p-5 flex flex-col gap-2;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply bg-white text-ink-primary border-border;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-ink-muted;
+  }
+  .input {
+    @apply w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors;
   }
 }

@@ -9,14 +9,17 @@ import {
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { RefreshCw, MapPin } from 'lucide-react'
+import { RefreshCw, MapPin, Zap, Clock, Navigation, AlertTriangle } from 'lucide-react'
 
 import {
   supabase,
   type Abastecimento,
   type Fazenda,
 } from '../services/supabase'
-import PageHeader from '../components/PageHeader'
+import PageHeader from '../components/ui/PageHeader'
+import StatCard from '../components/ui/StatCard'
+import SectionCard from '../components/ui/SectionCard'
+import StatusBadge from '../components/ui/StatusBadge'
 
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
 
@@ -193,13 +196,13 @@ export default function MapaOperacionalPage() {
     }
 
     const { data: statusData } = await supabase
-    .from('vw_status_cochos')
-    .select('id,status_operacional')
-    .eq('ativo', true)
+      .from('vw_status_cochos')
+      .select('id,status_operacional')
+      .eq('ativo', true)
 
-  setStatusCochos((statusData as StatusCocho[]) ?? [])
+    setStatusCochos((statusData as StatusCocho[]) ?? [])
 
-      setLoading(false)
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -229,93 +232,90 @@ export default function MapaOperacionalPage() {
   const rota = pontos.map((p) => [p.lat, p.lng] as [number, number])
 
   function calcularTempoAnterior(index: number) {
-  if (index === 0) return null
+    if (index === 0) return null
 
-  const atual = pontos[index]
-  const anterior = pontos[index - 1]
+    const atual = pontos[index]
+    const anterior = pontos[index - 1]
 
-  const diffMs =
-    new Date(atual.registrado_em).getTime() -
-    new Date(anterior.registrado_em).getTime()
+    const diffMs =
+      new Date(atual.registrado_em).getTime() -
+      new Date(anterior.registrado_em).getTime()
 
-  const minutos = Math.round(diffMs / 60000)
+    const minutos = Math.round(diffMs / 60000)
 
-  if (minutos < 1) return 'menos de 1 min'
-  if (minutos < 60) return `${minutos} min`
+    if (minutos < 1) return 'menos de 1 min'
+    if (minutos < 60) return `${minutos} min`
 
-  const horas = Math.floor(minutos / 60)
-  const resto = minutos % 60
+    const horas = Math.floor(minutos / 60)
+    const resto = minutos % 60
 
-  return `${horas}h ${resto}min`
-}
+    return `${horas}h ${resto}min`
+  }
 
-function calcularDistanciaMetros(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-) {
-  const R = 6371e3
+  function calcularDistanciaMetros(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) {
+    const R = 6371e3
 
-  const φ1 = (lat1 * Math.PI) / 180
-  const φ2 = (lat2 * Math.PI) / 180
+    const φ1 = (lat1 * Math.PI) / 180
+    const φ2 = (lat2 * Math.PI) / 180
 
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180
 
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) *
-      Math.cos(φ2) *
-      Math.sin(Δλ / 2) *
-      Math.sin(Δλ / 2)
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) *
+        Math.cos(φ2) *
+        Math.sin(Δλ / 2) *
+        Math.sin(Δλ / 2)
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-  return R * c
-}
+    return R * c
+  }
 
-function pontoForaDaFazenda(
-  ponto: PontoMapa
-) {
-  if (!fazendaCentro) return false
+  function pontoForaDaFazenda(ponto: PontoMapa) {
+    if (!fazendaCentro) return false
 
-  const distancia =
-    calcularDistanciaMetros(
+    const distancia = calcularDistanciaMetros(
       fazendaCentro[0],
       fazendaCentro[1],
       ponto.lat,
       ponto.lng
     )
 
-  return distancia > 3000
-}
-
-function calcularDistanciaAnterior(index: number) {
-  if (index === 0) return null
-
-  const atual = pontos[index]
-  const anterior = pontos[index - 1]
-
-  const metros = calcularDistanciaMetros(
-    anterior.lat,
-    anterior.lng,
-    atual.lat,
-    atual.lng
-  )
-
-  if (metros < 1000) {
-    return `${Math.round(metros)} m`
+    return distancia > 3000
   }
 
-  return `${(metros / 1000).toFixed(2)} km`
-}
+  function calcularDistanciaAnterior(index: number) {
+    if (index === 0) return null
+
+    const atual = pontos[index]
+    const anterior = pontos[index - 1]
+
+    const metros = calcularDistanciaMetros(
+      anterior.lat,
+      anterior.lng,
+      atual.lat,
+      atual.lng
+    )
+
+    if (metros < 1000) {
+      return `${Math.round(metros)} m`
+    }
+
+    return `${(metros / 1000).toFixed(2)} km`
+  }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Mapa operacional"
-        subtitle="Auditoria visual dos abastecimentos com GPS"
+        title="Mapa Operacional"
+        description="Monitoramento operacional e rastreabilidade em tempo real"
         action={
           <button onClick={load} disabled={loading} className="btn-ghost">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -324,73 +324,98 @@ function calcularDistanciaAnterior(index: number) {
         }
       />
 
-      <div className="flex items-center gap-2 mb-5">
-        {[
-          { value: 'hoje', label: 'Hoje' },
-          { value: '7d', label: '7 dias' },
-          { value: '30d', label: '30 dias' },
-          { value: 'todos', label: 'Todos' },
-        ].map((item) => (
-          <button
-            key={item.value}
-            onClick={() => setPeriodo(item.value as Periodo)}
-            className={`px-3 py-1 text-xs rounded border transition-colors ${
-              periodo === item.value
-                ? 'bg-green/10 text-green border-green/20'
-                : 'bg-surface text-ink-muted border-border hover:text-ink-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          title="Total de Pontos GPS"
+          value={pontos.length}
+          icon={Navigation}
+          color="bg-blue/10 text-blue"
+        />
+        <StatCard
+          title="Pontos Operacionais"
+          value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'ok').length}
+          icon={Zap}
+          color="bg-green/10 text-green"
+        />
+        <StatCard
+          title="Em Atenção"
+          value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'atencao').length}
+          icon={Clock}
+          color="bg-amber/10 text-amber"
+        />
+        <StatCard
+          title="Atrasados"
+          value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'atrasado').length}
+          icon={AlertTriangle}
+          color="bg-red/10 text-red"
+        />
+        <StatCard
+          title="Fora da Área"
+          value={pontos.filter((p) => pontoForaDaFazenda(p)).length}
+          icon={MapPin}
+          color="bg-rose/10 text-rose"
+        />
+      </div>
 
-        <span className="ml-auto text-xs text-ink-muted font-mono">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { value: 'hoje', label: 'Hoje' },
+            { value: '7d', label: '7 dias' },
+            { value: '30d', label: '30 dias' },
+            { value: 'todos', label: 'Todos' },
+          ].map((item) => (
+            <button
+              key={item.value}
+              onClick={() => setPeriodo(item.value as Periodo)}
+              className={`px-4 py-2 text-sm rounded-lg transition-all font-medium ${
+                periodo === item.value
+                  ? 'bg-green/10 text-green border border-green/20'
+                  : 'bg-surface text-ink-muted border border-border hover:bg-surface/80'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="ml-auto text-sm text-ink-muted font-mono">
           {pontos.length} ponto{pontos.length !== 1 ? 's' : ''} com GPS
         </span>
       </div>
 
-     <div className="flex flex-wrap items-center gap-4 mb-5 text-xs text-ink-muted">
-      <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="w-3 h-3 rounded-full bg-green" />
-        OK
-      </span>
+      <SectionCard title="Legenda da Mapa">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[
+            { color: '#22c55e', label: 'OK' },
+            { color: '#f59e0b', label: 'Atenção' },
+            { color: '#ef4444', label: 'Atrasado' },
+            { color: '#7f1d1d', label: 'Fora da Área' },
+            { color: '#2563eb', label: 'Ração' },
+          ].map((item, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="text-sm text-ink-muted">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
 
-      <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="w-3 h-3 rounded-full bg-warn" />
-        Atenção
-      </span>
-
-      <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="w-3 h-3 rounded-full bg-err" />
-        Atrasado
-      </span>
-
-      <span className="flex items-center gap-2 whitespace-nowrap">
-      <span
-        className="w-3 h-3 rounded-full"
-        style={{ background: '#7f1d1d' }}
-      />
-      Fora da área
-    </span>
-
-      <span className="flex items-center gap-2 whitespace-nowrap">
-        <span className="w-3 h-3 rounded-full bg-blue-600" />
-        Ração
-      </span>
-    </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-        <div className="fs-card overflow-hidden h-[620px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+        <SectionCard title="Rastreabilidade em Tempo Real">
           {loading ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-green/30 border-t-green rounded-full animate-spin" />
+            <div className="h-[600px] flex items-center justify-center">
+              <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
             </div>
           ) : (
             <MapContainer
               center={centro}
               zoom={16}
               scrollWheelZoom
-              className="w-full h-full"
+              className="w-full h-[600px] rounded-lg overflow-hidden"
             >
               <AtualizarCentro centro={centro} zoom={16} />
 
@@ -411,150 +436,163 @@ function calcularDistanciaAnterior(index: number) {
               )}
 
               {pontos.map((ponto, index) => (
-              <Marker
-                key={ponto.id}
-                position={[ponto.lat, ponto.lng]}
-                icon={criarMarcadorPorStatus(
-                  ponto.tipo_abastecimento,
-                  index + 1,
-                  getStatusCocho(ponto.cocho_id),
-                  pontoForaDaFazenda(ponto)
-                )}
-              >
-                <Popup>
-                  <div style={{ minWidth: 180 }}>
-                    <strong>
-                      #{index + 1} — {ponto.cocho?.nome ?? 'Cocho'}
-                    </strong>
+                <Marker
+                  key={ponto.id}
+                  position={[ponto.lat, ponto.lng]}
+                  icon={criarMarcadorPorStatus(
+                    ponto.tipo_abastecimento,
+                    index + 1,
+                    getStatusCocho(ponto.cocho_id),
+                    pontoForaDaFazenda(ponto)
+                  )}
+                >
+                  <Popup>
+                    <div className="min-w-[240px]">
+                      <div className="mb-3">
+                        <h3 className="font-semibold text-ink-primary">
+                          #{index + 1} — {ponto.cocho?.nome ?? 'Cocho'}
+                        </h3>
+                        <p className="text-xs text-ink-muted font-mono mt-1">
+                          {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
+                        </p>
+                      </div>
 
-                    <br />
+                      <div className="space-y-2 text-sm mb-3">
+                        <div className="flex justify-between">
+                          <span className="text-ink-muted">Quantidade:</span>
+                          <span className="font-semibold text-ink-primary">
+                            {ponto.quantidade_kg ?? 0} kg
+                          </span>
+                        </div>
 
-                    <span>
-                      Código: {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
-                    </span>
+                        <div className="flex justify-between">
+                          <span className="text-ink-muted">Tratador:</span>
+                          <span className="font-semibold text-ink-primary">
+                            {ponto.dispositivo?.tratador_nome ??
+                              ponto.dispositivo?.nome ??
+                              '—'}
+                          </span>
+                        </div>
 
-                    <br />
+                        <div className="flex justify-between">
+                          <span className="text-ink-muted">Horário:</span>
+                          <span className="font-semibold text-ink-primary font-mono text-xs">
+                            {fmtDateTime(ponto.registrado_em)}
+                          </span>
+                        </div>
 
-                    <span>
-                      Quantidade: {ponto.quantidade_kg ?? 0} kg
-                    </span>
+                        {calcularTempoAnterior(index) && (
+                          <div className="flex justify-between">
+                            <span className="text-ink-muted">Tempo anterior:</span>
+                            <span className="font-semibold text-ink-primary">
+                              {calcularTempoAnterior(index)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-                    <br />
+                      <div className="pt-3 border-t border-border">
+                        <StatusBadge status={
+                          getStatusCocho(ponto.cocho_id) === 'ok'
+                            ? 'ok'
+                            : getStatusCocho(ponto.cocho_id) === 'atencao'
+                            ? 'warn'
+                            : 'err'
+                        }>
+                          {getStatusCocho(ponto.cocho_id).toUpperCase()}
+                        </StatusBadge>
 
-                    <span>
-                      Tratador:{' '}
-                      {ponto.dispositivo?.tratador_nome ??
-                        ponto.dispositivo?.nome ??
-                        '—'}
-                    </span>
+                        {pontoForaDaFazenda(ponto) && (
+                          <div className="mt-2 p-2 bg-red/10 rounded text-xs text-red font-semibold">
+                            ⚠ Fora da área operacional
+                          </div>
+                        )}
+                      </div>
 
-                    <br />
-
-                    <span>
-                      Horário: {fmtDateTime(ponto.registrado_em)}
-                    </span>
-
-                    <br />
-
-                    <span>
-                      Tempo anterior:{' '}
-                      {calcularTempoAnterior(index) ?? 'Primeiro ponto'}
-                    </span>
-
-                    <br />
-
-                    <span>
-                      Status: {getStatusCocho(ponto.cocho_id)}
-                    </span>
-
-                    <br />
-
-                    {pontoForaDaFazenda(ponto) && (
-                      <span
-                        style={{
-                          color: '#ef4444',
-                          fontWeight: 700,
-                        }}
-                      >
-                        ⚠ Fora da área operacional
-                      </span>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+                      <p className="text-xs text-ink-muted font-mono mt-3">
+                        {ponto.lat.toFixed(6)}, {ponto.lng.toFixed(6)}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
             </MapContainer>
           )}
-        </div>
+        </SectionCard>
 
-        <div className="fs-card p-5 h-[620px] overflow-y-auto">
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin size={15} className="text-green" />
+        <div className="flex flex-col gap-6">
+          <SectionCard title="Linha da Rota">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+              {pontos.length === 0 ? (
+                <p className="text-sm text-ink-muted py-8 text-center">
+                  Nenhum registro com GPS neste período.
+                </p>
+              ) : (
+                pontos.map((ponto, index) => (
+                  <div
+                    key={ponto.id}
+                    className="border border-border rounded-lg p-3 bg-white hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="w-7 h-7 rounded-md bg-green/10 text-green flex items-center justify-center text-xs font-mono font-semibold flex-shrink-0">
+                        {index + 1}
+                      </span>
 
-            <h2 className="text-sm font-semibold text-ink-primary">
-              Linha da rota
-            </h2>
-          </div>
+                      <StatusBadge status={
+                        getStatusCocho(ponto.cocho_id) === 'ok'
+                          ? 'ok'
+                          : getStatusCocho(ponto.cocho_id) === 'atencao'
+                          ? 'warn'
+                          : 'err'
+                      }>
+                        {getStatusCocho(ponto.cocho_id).toUpperCase()}
+                      </StatusBadge>
+                    </div>
 
-          {pontos.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              Nenhum registro com GPS neste período.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {pontos.map((ponto, index) => (
-                <div
-                  key={ponto.id}
-                  className="border border-border bg-surface rounded-lg p-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="w-7 h-7 rounded-md bg-green/10 text-green flex items-center justify-center text-xs font-mono">
-                      {index + 1}
-                    </span>
-
-                    <span className="text-xs text-ink-muted font-mono">
-                      {fmtDateTime(ponto.registrado_em)}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-ink-primary font-medium mt-3">
-                    {ponto.cocho?.nome ?? 'Cocho não identificado'}
-                  </p>
-
-                  <p className="text-xs text-ink-muted font-mono mt-1">
-                    {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
-                  </p>
-
-                  <p className="text-xs text-ink-muted mt-2">
-                    {ponto.quantidade_kg ?? 0} kg ·{' '}
-                    {ponto.dispositivo?.tratador_nome ??
-                      ponto.dispositivo?.nome ??
-                      'Sem tratador'}
-                  </p>
-                  
-                  {calcularTempoAnterior(index) && (
-                  <div className="mt-2">
-                    <p className="text-xs text-green">
-                      Tempo desde o ponto anterior:{' '}
-                      {calcularTempoAnterior(index)}
+                    <p className="text-sm font-semibold text-ink-primary">
+                      {ponto.cocho?.nome ?? 'Cocho não identificado'}
                     </p>
 
-                    {calcularDistanciaAnterior(index) && (
-                      <p className="text-xs text-blue-400 mt-1">
-                        Distância do ponto anterior:{' '}
-                        {calcularDistanciaAnterior(index)}
+                    <p className="text-xs text-ink-muted font-mono mt-1">
+                      {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
+                    </p>
+
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-ink-muted">
+                        <span className="font-medium">Quantidade:</span> {ponto.quantidade_kg ?? 0} kg
                       </p>
+
+                      <p className="text-xs text-ink-muted">
+                        <span className="font-medium">Tratador:</span> {
+                          ponto.dispositivo?.tratador_nome ??
+                          ponto.dispositivo?.nome ??
+                          'Sem tratador'
+                        }
+                      </p>
+
+                      <p className="text-xs text-ink-muted font-mono">
+                        <span className="font-medium">Horário:</span> {fmtDateTime(ponto.registrado_em)}
+                      </p>
+                    </div>
+
+                    {calcularTempoAnterior(index) && (
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <p className="text-xs text-green font-medium">
+                          ↓ {calcularTempoAnterior(index)}
+                        </p>
+
+                        {calcularDistanciaAnterior(index) && (
+                          <p className="text-xs text-blue-600 font-medium mt-1">
+                            ↗ {calcularDistanciaAnterior(index)}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-
-                  <p className="text-[10px] text-ink-muted/70 font-mono mt-2">
-                    {ponto.lat.toFixed(6)}, {ponto.lng.toFixed(6)}
-                  </p>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          )}
+          </SectionCard>
         </div>
       </div>
     </div>

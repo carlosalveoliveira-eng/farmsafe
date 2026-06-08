@@ -1,10 +1,27 @@
-import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, Search, Filter, Pencil, X, Save } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import {
+  RefreshCw,
+  Search,
+  Filter,
+  Pencil,
+  X,
+  Save,
+  Download,
+  Droplets,
+  Beef,
+  CalendarDays,
+  CheckCircle,
+} from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 
 import { supabase, type Abastecimento } from '../services/supabase'
-import PageHeader from '../components/PageHeader'
+import PageHeader from '../components/ui/PageHeader'
+import SectionCard from '../components/ui/SectionCard'
+import StatCard from '../components/ui/StatCard'
+import DataTable from '../components/ui/DataTable'
+import EmptyState from '../components/ui/EmptyState'
+import StatusBadge from '../components/ui/StatusBadge'
 
 const PAGE_SIZE = 25
 
@@ -89,7 +106,6 @@ function baixarExcel(registros: Abastecimento[]) {
   ]
 
   const workbook = XLSX.utils.book_new()
-
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Abastecimentos')
 
   const excelBuffer = XLSX.write(workbook, {
@@ -178,6 +194,27 @@ export default function AbastecimentosPage() {
     : rows
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const totalKg = useMemo(() => {
+    return filtered.reduce((acc, item) => acc + (item.quantidade_kg ?? 0), 0)
+  }, [filtered])
+
+  const cochosUnicos = useMemo(() => {
+    return new Set(filtered.map((item) => item.cocho_id)).size
+  }, [filtered])
+
+  const sincronizados = useMemo(() => {
+    return filtered.filter((item) => item.sincronizado_em).length
+  }, [filtered])
+
+  const hoje = useMemo(() => {
+    const inicio = new Date()
+    inicio.setHours(0, 0, 0, 0)
+
+    return filtered.filter(
+      (item) => new Date(item.registrado_em).getTime() >= inicio.getTime()
+    ).length
+  }, [filtered])
 
   function abrirEdicao(item: Abastecimento) {
     setForm({
@@ -281,21 +318,22 @@ export default function AbastecimentosPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-8">
       <PageHeader
         title="Abastecimentos"
-        subtitle={`${total.toLocaleString('pt-BR')} registros encontrados`}
+        description="Rastreabilidade e histórico operacional dos abastecimentos realizados."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={exportarExcel}
               disabled={exportando || total === 0}
               className="btn-primary"
             >
+              <Download size={14} />
               {exportando ? 'Exportando...' : 'Exportar Excel'}
             </button>
 
-            <button onClick={load} disabled={loading} className="btn-ghost">
+            <button onClick={load} disabled={loading} className="btn-ghost border border-border bg-white">
               <RefreshCw
                 size={14}
                 className={loading ? 'animate-spin' : ''}
@@ -306,215 +344,251 @@ export default function AbastecimentosPage() {
         }
       />
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-xs">
-          <Search
-            size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-          />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+        <StatCard
+          title="Total abastecido"
+          value={`${totalKg.toLocaleString('pt-BR')} kg`}
+          icon={Droplets}
+        />
 
-          <input
-            type="text"
-            placeholder="Buscar cocho, dispositivo, tratador..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-4 py-2 bg-surface border border-border rounded-md text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 transition-colors"
-          />
-        </div>
+        <StatCard
+          title="Registros do período"
+          value={filtered.length}
+          icon={CalendarDays}
+        />
 
-        <div className="flex items-center gap-1 p-1 bg-surface border border-border rounded-md">
-          <Filter size={12} className="text-ink-muted ml-2" />
+        <StatCard
+          title="Cochos abastecidos"
+          value={cochosUnicos}
+          icon={Beef}
+        />
 
-          {(['todos', 'sync', 'pendente'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => {
-                setSyncFilter(v)
-                setPage(0)
-              }}
-              className={`px-3 py-1 text-xs rounded transition-colors ${
-                syncFilter === v
-                  ? 'bg-green/10 text-green border border-green/20'
-                  : 'text-ink-muted hover:text-ink-primary'
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
+        <StatCard
+          title="Operações hoje"
+          value={hoje}
+          icon={CheckCircle}
+        />
       </div>
 
-      <div className="flex items-center gap-2 mb-5">
-        {[
-          { value: 'hoje', label: 'Hoje' },
-          { value: '7d', label: '7 dias' },
-          { value: '30d', label: '30 dias' },
-          { value: 'todos', label: 'Todos' },
-        ].map((item) => (
-          <button
-            key={item.value}
-            onClick={() => {
-              setPeriodo(item.value as Periodo)
-              setPage(0)
-            }}
-            className={`px-3 py-1 text-xs rounded border transition-colors ${
-              periodo === item.value
-                ? 'bg-green/10 text-green border-green/20'
-                : 'bg-surface text-ink-muted border-border hover:text-ink-primary'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <SectionCard>
+        <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+            />
 
-      <div className="fs-card overflow-hidden">
-        {loading && rows.length === 0 ? (
+            <input
+              type="text"
+              placeholder="Buscar por cocho, QR, dispositivo, tratador..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input pl-9"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 p-1 bg-surface border border-border rounded-xl">
+              <Filter size={13} className="text-ink-muted ml-2" />
+
+              {(['todos', 'sync', 'pendente'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setSyncFilter(v)
+                    setPage(0)
+                  }}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                    syncFilter === v
+                      ? 'bg-white text-green border border-green/20 shadow-sm'
+                      : 'text-ink-muted hover:text-ink-primary'
+                  }`}
+                >
+                  {v === 'todos'
+                    ? 'Todos'
+                    : v === 'sync'
+                    ? 'Sincronizados'
+                    : 'Pendentes'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-surface border border-border rounded-xl">
+              {[
+                { value: 'hoje', label: 'Hoje' },
+                { value: '7d', label: '7 dias' },
+                { value: '30d', label: '30 dias' },
+                { value: 'todos', label: 'Todos' },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => {
+                    setPeriodo(item.value as Periodo)
+                    setPage(0)
+                  }}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                    periodo === item.value
+                      ? 'bg-white text-green border border-green/20 shadow-sm'
+                      : 'text-ink-muted hover:text-ink-primary'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      {loading && rows.length === 0 ? (
+        <SectionCard>
           <div className="p-12 flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-green/30 border-t-green rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-green/20 border-t-green rounded-full animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-ink-muted text-sm">
-            Nenhum resultado.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="fs-table">
-              <thead>
-                <tr>
-                  <th>Cocho</th>
-                  <th>Lote</th>
-                  <th>Tipo</th>
-                  <th>Qtd (kg)</th>
-                  <th>Dispositivo</th>
-                  <th>Registrado em</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
+        </SectionCard>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="Nenhum abastecimento encontrado"
+          description="Não existem registros para os filtros selecionados."
+        />
+      ) : (
+        <DataTable>
+          <thead>
+            <tr>
+              <th>Cocho</th>
+              <th>Lote</th>
+              <th>Tipo</th>
+              <th>Quantidade</th>
+              <th>Dispositivo</th>
+              <th>Registrado em</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
 
-              <tbody>
-                {filtered.map((a) => (
-                  <tr key={a.id}>
-                    <td>
-                      <span className="text-ink-primary font-medium">
-                        {a.cocho?.nome ?? '—'}
-                      </span>
-                      <span className="block font-mono text-[10px] text-ink-muted mt-0.5">
-                        {a.cocho?.codigo_qr}
-                      </span>
-                    </td>
+          <tbody>
+            {filtered.map((a) => (
+              <tr key={a.id}>
+                <td>
+                  <span className="text-ink-primary font-semibold">
+                    {a.cocho?.nome ?? '—'}
+                  </span>
 
-                    <td>
-                      {a.lote?.nome ?? (
-                        <span className="text-ink-muted">—</span>
-                      )}
-                    </td>
+                  <span className="block font-mono text-[11px] text-ink-muted mt-1">
+                    {a.cocho?.codigo_qr ?? 'Sem QR'}
+                  </span>
+                </td>
 
-                    <td>
-                      <span className="badge badge-muted">
-                        {a.tipo_abastecimento}
-                      </span>
-                    </td>
+                <td>
+                  {a.lote?.nome ?? (
+                    <span className="text-ink-muted">—</span>
+                  )}
+                </td>
 
-                    <td className="font-mono">
-                      {a.quantidade_kg ?? '—'}
-                    </td>
+                <td>
+                  <StatusBadge status="muted">
+                    {a.tipo_abastecimento}
+                  </StatusBadge>
+                </td>
 
-                    <td>
-                      <span>{a.dispositivo?.nome ?? '—'}</span>
-                      {a.dispositivo?.tratador_nome && (
-                        <span className="block text-[11px] text-ink-muted">
-                          {a.dispositivo.tratador_nome}
-                        </span>
-                      )}
-                    </td>
+                <td className="font-semibold text-ink-primary">
+                  {a.quantidade_kg ?? 0} kg
+                </td>
 
-                    <td className="font-mono text-xs whitespace-nowrap">
-                      {fmtDateTime(a.registrado_em)}
-                    </td>
+                <td>
+                  <span className="text-ink-primary">
+                    {a.dispositivo?.nome ?? '—'}
+                  </span>
 
-                    <td>
-                      <span
-                        className={`badge ${
-                          a.sincronizado_em ? 'badge-ok' : 'badge-warn'
-                        }`}
-                      >
-                        {a.sincronizado_em ? 'sync' : 'pendente'}
-                      </span>
-                    </td>
+                  {a.dispositivo?.tratador_nome && (
+                    <span className="block text-xs text-ink-muted mt-1">
+                      {a.dispositivo.tratador_nome}
+                    </span>
+                  )}
+                </td>
 
-                    <td>
-                      <button
-                        onClick={() => abrirEdicao(a)}
-                        className="btn-ghost text-xs border border-border"
-                      >
-                        <Pencil size={13} />
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                <td className="font-mono text-xs whitespace-nowrap text-ink-secondary">
+                  {fmtDateTime(a.registrado_em)}
+                </td>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-            <span className="text-xs text-ink-muted font-mono">
+                <td>
+                  <StatusBadge status={a.sincronizado_em ? 'ok' : 'warn'}>
+                    {a.sincronizado_em ? 'Sincronizado' : 'Pendente'}
+                  </StatusBadge>
+                </td>
+
+                <td>
+                  <button
+                    onClick={() => abrirEdicao(a)}
+                    className="btn-ghost text-xs border border-border bg-white"
+                  >
+                    <Pencil size={13} />
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      )}
+
+      {totalPages > 1 && (
+        <SectionCard>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink-muted">
               {page * PAGE_SIZE + 1}–
               {Math.min((page + 1) * PAGE_SIZE, total)} de{' '}
               {total.toLocaleString('pt-BR')}
             </span>
 
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               <button
                 disabled={page === 0}
                 onClick={() => setPage((p) => p - 1)}
-                className="px-3 py-1 text-xs border border-border rounded hover:border-green/40 disabled:opacity-30 transition-colors text-ink-secondary"
+                className="btn-ghost border border-border bg-white disabled:opacity-30"
               >
-                ← anterior
+                ← Anterior
               </button>
 
               <button
                 disabled={page >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1 text-xs border border-border rounded hover:border-green/40 disabled:opacity-30 transition-colors text-ink-secondary"
+                className="btn-ghost border border-border bg-white disabled:opacity-30"
               >
-                próxima →
+                Próxima →
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </SectionCard>
+      )}
 
       {modalAberto && form && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="w-full max-w-xl bg-surface border border-border rounded-xl shadow-panel">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-white border border-border rounded-2xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
               <div>
                 <h2 className="text-lg font-semibold text-ink-primary">
                   Editar abastecimento
                 </h2>
-                <p className="text-xs text-ink-muted mt-1">
+
+                <p className="text-sm text-ink-muted mt-1">
                   Corrija quantidade, tipo ou observação do registro.
                 </p>
               </div>
 
               <button
                 onClick={() => setModalAberto(false)}
-                className="w-9 h-9 rounded-md bg-panel border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary"
+                className="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center text-ink-muted hover:text-ink-primary"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div className="p-6 grid grid-cols-1 gap-4">
-              <div>
-                <label className="text-xs text-ink-muted">
+              <label className="block">
+                <span className="text-sm font-medium text-ink-primary">
                   Tipo de abastecimento
-                </label>
+                </span>
 
                 <select
                   value={form.tipo_abastecimento}
@@ -524,7 +598,7 @@ export default function AbastecimentosPage() {
                       tipo_abastecimento: e.target.value,
                     })
                   }
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="input mt-2"
                 >
                   <option value="sal_mineral">Sal mineral</option>
                   <option value="sal_proteinado">Sal proteinado</option>
@@ -532,12 +606,12 @@ export default function AbastecimentosPage() {
                   <option value="racao">Ração</option>
                   <option value="outro">Outro</option>
                 </select>
-              </div>
+              </label>
 
-              <div>
-                <label className="text-xs text-ink-muted">
+              <label className="block">
+                <span className="text-sm font-medium text-ink-primary">
                   Quantidade kg
-                </label>
+                </span>
 
                 <input
                   type="number"
@@ -549,16 +623,18 @@ export default function AbastecimentosPage() {
                     })
                   }
                   placeholder="0"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50"
+                  className="input mt-2"
                 />
 
                 <p className="text-xs text-ink-muted mt-2">
                   Para anular um registro, informe 0 kg.
                 </p>
-              </div>
+              </label>
 
-              <div>
-                <label className="text-xs text-ink-muted">Observação</label>
+              <label className="block">
+                <span className="text-sm font-medium text-ink-primary">
+                  Observação
+                </span>
 
                 <textarea
                   value={form.observacao}
@@ -569,12 +645,12 @@ export default function AbastecimentosPage() {
                     })
                   }
                   placeholder="Observação opcional"
-                  className="mt-1 w-full px-3 py-2 bg-canvas border border-border rounded-md text-sm text-ink-primary focus:outline-none focus:border-green/50 min-h-24 resize-none"
+                  className="input mt-2 min-h-24 resize-none"
                 />
-              </div>
+              </label>
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-surface/40">
               <button
                 onClick={() => setModalAberto(false)}
                 className="btn-ghost"

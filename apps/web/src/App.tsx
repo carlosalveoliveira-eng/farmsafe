@@ -13,6 +13,7 @@ import CochosPage from './pages/CochosPage'
 import DispositivosPage from './pages/DispositivosPage'
 import FazendasPage from './pages/FazendasPage'
 import MapaOperacionalPage from './pages/MapaOperacionalPage'
+import LogsPage from './pages/LogsPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="dispositivos" element={<DispositivosPage />} />
           <Route path="fazendas" element={<FazendasPage />} />
           <Route path="mapa-operacional" element={<MapaOperacionalPage />} />
+          <Route path="logs" element={<LogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
