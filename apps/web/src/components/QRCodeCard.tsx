@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import QRCode from 'react-qr-code'
 import { Printer, Box } from 'lucide-react'
-import type { Cocho } from '@/services/supabase'
+import type { Cocho } from '../services/supabase'
 
 interface Props {
   cocho: Cocho
