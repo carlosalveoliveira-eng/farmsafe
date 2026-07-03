@@ -102,6 +102,46 @@ export default function CochosPage() {
     load()
   }, [apenasAtivos])
 
+  useEffect(() => {
+  if (!modalAberto) return
+  if (form.id) return
+  if (!form.fazenda_id) return
+  if (form.codigo_qr) return
+
+  let cancelado = false
+
+  async function gerarCodigoQrAutomaticamente() {
+    const { data, error } = await supabase.rpc('gerar_codigo_cocho', {
+      p_fazenda_id: form.fazenda_id,
+    })
+
+    if (cancelado) return
+
+    if (error) {
+      console.error(error)
+      alert('Erro ao gerar código QR automaticamente.')
+      return
+    }
+
+    setForm((atual) => {
+      if (atual.id) return atual
+      if (atual.codigo_qr) return atual
+      if (atual.fazenda_id !== form.fazenda_id) return atual
+
+      return {
+        ...atual,
+        codigo_qr: data,
+      }
+    })
+  }
+
+  void gerarCodigoQrAutomaticamente()
+
+  return () => {
+    cancelado = true
+  }
+}, [modalAberto, form.id, form.fazenda_id, form.codigo_qr])
+
   const filtered = search.trim()
     ? cochos.filter((c) =>
         c.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -117,6 +157,36 @@ export default function CochosPage() {
     inativos: cochos.filter((c) => !c.ativo).length,
   }
 
+  const retirosDaFazenda = retiros.filter(
+  (retiro) => !form.fazenda_id || retiro.fazenda_id === form.fazenda_id
+)
+
+const lotesDaFazenda = lotes.filter((lote) => {
+  const mesmaFazenda = !form.fazenda_id || lote.fazenda_id === form.fazenda_id
+  const mesmoRetiro = !form.retiro_id || lote.retiro_id === form.retiro_id
+
+  return mesmaFazenda && mesmoRetiro
+})
+
+function atualizarCapacidadeKg(valor: string) {
+  if (valor === '') {
+    setForm((atual) => ({
+      ...atual,
+      capacidade_kg: '',
+    }))
+    return
+  }
+
+  const numero = Number(valor)
+
+  if (Number.isNaN(numero)) return
+
+  setForm((atual) => ({
+    ...atual,
+    capacidade_kg: numero < 0 ? '0' : valor,
+  }))
+}
+
   function abrirNovo() {
     setForm(formInicial)
     setModalAberto(true)
@@ -131,7 +201,8 @@ export default function CochosPage() {
       retiro_id: cocho.retiro_id ?? '',
       lote_id: cocho.lote_id ?? '',
       tipo_sal: cocho.tipo_sal ?? 'sal_mineral',
-      capacidade_kg: cocho.capacidade_kg
+      capacidade_kg:
+      cocho.capacidade_kg !== null && cocho.capacidade_kg !== undefined
         ? String(cocho.capacidade_kg)
         : '',
       ativo: cocho.ativo,
@@ -140,49 +211,38 @@ export default function CochosPage() {
     setModalAberto(true)
   }
 
-  async function gerarCodigoAutomatico() {
-    if (!form.fazenda_id) {
-      alert('Selecione a fazenda antes.')
-      return
-    }
-
-    const { data, error } = await supabase.rpc(
-      'gerar_codigo_cocho',
-      {
-        p_fazenda_id: form.fazenda_id,
-      }
-    )
-
-    if (error) {
-      console.error(error)
-      alert('Erro ao gerar QR.')
-      return
-    }
-
-    setForm((atual) => ({
-      ...atual,
-      codigo_qr: data,
-    }))
+  async function salvarCocho() {
+  if (!form.nome.trim()) {
+    alert('Informe o nome do cocho.')
+    return
   }
 
-  async function salvarCocho() {
-    if (!form.nome.trim()) {
-      alert('Informe o nome do cocho.')
-      return
-    }
+  if (!form.codigo_qr.trim()) {
+    alert('Informe o código QR.')
+    return
+  }
 
-    if (!form.codigo_qr.trim()) {
-      alert('Informe o código QR.')
-      return
-    }
+  if (!form.fazenda_id) {
+    alert('Selecione a fazenda.')
+    return
+  }
 
-    if (!form.fazenda_id) {
-      alert('Selecione a fazenda.')
-      return
-    }
+  const capacidadeKg =
+    form.capacidade_kg.trim() === ''
+      ? null
+      : Number(form.capacidade_kg)
 
-    setSalvando(true)
-    
+  if (
+    capacidadeKg !== null &&
+    (!Number.isFinite(capacidadeKg) || capacidadeKg < 0)
+  ) {
+    alert('A capacidade do cocho não pode ser negativa.')
+    return
+  }
+
+  setSalvando(true)
+
+  try {
     const usuario = await getEmpresaUsuario()
     const empresa = usuario.empresa as any
 
@@ -199,9 +259,7 @@ export default function CochosPage() {
       retiro_id: form.retiro_id || null,
       lote_id: form.lote_id || null,
       tipo_sal: form.tipo_sal || null,
-      capacidade_kg: form.capacidade_kg
-        ? Number(form.capacidade_kg)
-        : null,
+      capacidade_kg: capacidadeKg,
       ativo: form.ativo,
     }
 
@@ -214,8 +272,6 @@ export default function CochosPage() {
           .from('cochos')
           .insert(payload)
 
-    setSalvando(false)
-
     if (error) {
       console.error(error)
       alert(`Erro ao salvar cocho: ${error.message}`)
@@ -225,7 +281,10 @@ export default function CochosPage() {
     setModalAberto(false)
     setForm(formInicial)
     await load()
+  } finally {
+    setSalvando(false)
   }
+}
 
   async function alternarAtivo(cocho: Cocho) {
     const confirmar = confirm(
@@ -278,7 +337,7 @@ export default function CochosPage() {
           </div>
         }
       />
-
+  
       <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4">
         <StatCard
           title="Total de Cochos"
@@ -301,7 +360,7 @@ export default function CochosPage() {
       </div>
 
       <SectionCard title="Filtros e Busca">
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="relative flex-1 min-w-[240px]">
             <Search
               size={16}
@@ -310,24 +369,50 @@ export default function CochosPage() {
 
             <input
               type="text"
-              placeholder="Buscar por nome, código, lote, tipo..."
+              placeholder="Buscar por nome, código QR, lote ou tipo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer select-none hover:text-ink-primary transition-colors">
-            <input
-              type="checkbox"
-              checked={apenasAtivos}
-              onChange={(e) => setApenasAtivos(e.target.checked)}
-              className="accent-green rounded"
-            />
-            Apenas ativos
-          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setApenasAtivos(true)}
+              className={`px-4 py-2 text-sm rounded-lg border transition-all font-medium ${
+                apenasAtivos
+                  ? 'bg-green/10 text-green border-green/20'
+                  : 'bg-white text-ink-muted border-border hover:bg-surface'
+              }`}
+            >
+              Ativos
+            </button>
 
-          <span className="ml-auto text-sm text-ink-muted font-mono">
+            <button
+              type="button"
+              onClick={() => setApenasAtivos(false)}
+              className={`px-4 py-2 text-sm rounded-lg border transition-all font-medium ${
+                !apenasAtivos
+                  ? 'bg-green/10 text-green border-green/20'
+                  : 'bg-white text-ink-muted border-border hover:bg-surface'
+              }`}
+            >
+              Todos
+            </button>
+          </div>
+
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="btn-ghost"
+            >
+              Limpar busca
+            </button>
+          )}
+
+          <span className="text-sm text-ink-muted font-mono lg:ml-auto">
             {filtered.length} resultado{filtered.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -393,7 +478,7 @@ export default function CochosPage() {
                     </div>
                   )}
 
-                  {cocho.capacidade_kg && (
+                  {cocho.capacidade_kg !== null && cocho.capacidade_kg !== undefined && (
                     <div>
                       <p className="text-xs text-ink-muted">Capacidade</p>
                       <p className="text-sm text-ink-primary mt-1">
@@ -438,7 +523,7 @@ export default function CochosPage() {
 
       {modalAberto && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white border border-border rounded-xl shadow-lg">
+          <div className="w-full max-w-3xl max-h-[92vh] bg-white border border-border rounded-xl shadow-lg flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-border">
               <div>
                 <h2 className="text-lg font-semibold text-ink-primary">
@@ -457,7 +542,7 @@ export default function CochosPage() {
               </button>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto">
               <div className="md:col-span-1">
                 <label className="text-sm font-medium text-ink-primary">
                   Nome do Cocho
@@ -477,20 +562,25 @@ export default function CochosPage() {
                   Código QR
                 </label>
 
-                <div className="mt-2 flex gap-2">
+                <div>
+                  <label className="text-sm font-medium text-ink-primary">
+                    Código QR
+                  </label>
+
                   <input
                     value={form.codigo_qr}
                     readOnly
-                    placeholder="Gerado automaticamente"
-                    className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-sm text-ink-muted font-mono cursor-not-allowed"
+                    placeholder={
+                      form.fazenda_id
+                        ? 'Gerando automaticamente...'
+                        : 'Selecione a fazenda para gerar'
+                    }
+                    className="mt-2 w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-ink-muted font-mono cursor-not-allowed"
                   />
 
-                  <button
-                    onClick={gerarCodigoAutomatico}
-                    className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface transition-colors"
-                  >
-                    Gerar
-                  </button>
+                  <p className="text-xs text-ink-muted mt-1">
+                    O código QR é gerado automaticamente ao selecionar a fazenda.
+                  </p>
                 </div>
               </div>
 
@@ -504,6 +594,8 @@ export default function CochosPage() {
                     setForm({
                       ...form,
                       fazenda_id: e.target.value,
+                      retiro_id: '',
+                      lote_id: '',
                       codigo_qr: '',
                     })
                   }
@@ -528,22 +620,17 @@ export default function CochosPage() {
                     setForm({
                       ...form,
                       retiro_id: e.target.value,
+                      lote_id: '',
                     })
                   }
                   className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
                   <option value="">Sem retiro</option>
-                  {retiros
-                    .filter(
-                      (r) =>
-                        !form.fazenda_id ||
-                        r.fazenda_id === form.fazenda_id
-                    )
-                    .map((retiro) => (
-                      <option key={retiro.id} value={retiro.id}>
-                        {retiro.nome}
-                      </option>
-                    ))}
+                  {retirosDaFazenda.map((retiro) => (
+                    <option key={retiro.id} value={retiro.id}>
+                      {retiro.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -562,17 +649,11 @@ export default function CochosPage() {
                   className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 >
                   <option value="">Sem lote</option>
-                  {lotes
-                    .filter(
-                      (l) =>
-                        !form.fazenda_id ||
-                        l.fazenda_id === form.fazenda_id
-                    )
-                    .map((lote) => (
-                      <option key={lote.id} value={lote.id}>
-                        {lote.nome}
-                      </option>
-                    ))}
+                  {lotesDaFazenda.map((lote) => (
+                    <option key={lote.id} value={lote.id}>
+                      {lote.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -599,13 +680,11 @@ export default function CochosPage() {
                 </label>
                 <input
                   value={form.capacidade_kg}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      capacidade_kg: e.target.value,
-                    })
-                  }
+                  onChange={(e) => atualizarCapacidadeKg(e.target.value)}
                   type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
                   placeholder="100"
                   className="mt-2 w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors"
                 />
