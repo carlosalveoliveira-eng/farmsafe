@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.0",
+    "@tmcw/togeojson": "^7.1.2",
     "file-saver": "^2.0.5",
+    "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.383.0",
     "react": "^18.3.1",
