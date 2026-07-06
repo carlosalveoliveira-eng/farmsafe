@@ -1,105 +1,125 @@
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL     as string
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias.')
+  throw new Error(
+    'Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias.'
+  )
 }
 
-export const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  {
-    db: {
-      schema: 'farmsafe',
-    },
-  }
-)
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  db: {
+    schema: 'farmsafe',
+  },
+})
 
 // ─── Tipos espelho do schema farmsafe ────────────────────────────────────────
 
 export interface Fazenda {
-  id:         string
-  nome:       string
-  codigo:     string
-  cidade:     string | null
-  estado:     string | null
+  id: string
+  nome: string
+  codigo: string
+  cidade: string | null
+  estado: string | null
   latitude: number | null
   longitude: number | null
   empresa_id: string | null
   area_valor: number | null
   area_unidade: string | null
   raio_operacional_metros: number | null
-  ativo:      boolean
+  ativo: boolean
   created_at: string
   updated_at: string
 }
 
 export interface Retiro {
-  id:         string
+  id: string
+  empresa_id?: string | null
   fazenda_id: string
-  nome:       string
-  ativo:      boolean
+  nome: string
+  ativo: boolean
+  created_at?: string | null
   updated_at: string
 }
 
 export interface Lote {
-  id:         string
+  id: string
+  empresa_id?: string | null
   fazenda_id: string
-  retiro_id:  string | null
-  nome:       string
-  descricao:  string | null
-  ativo:      boolean
+  retiro_id: string | null
+  nome: string
+  descricao: string | null
+
+  /**
+   * Quantidade opcional de cabeças no lote.
+   *
+   * null = usuário ainda não informou
+   * 0    = lote vazio
+   * > 0  = quantidade real de animais
+   */
+  quantidade_animais: number | null
+
+  ativo: boolean
+  created_at?: string | null
   updated_at: string
 }
 
 export interface Cocho {
-  id:            string
-  fazenda_id:    string
-  retiro_id:     string | null
-  lote_id:       string | null
-  nome:          string
-  codigo_qr:     string
-  tipo_sal:      string | null
+  id: string
+  empresa_id?: string | null
+  fazenda_id: string
+  retiro_id: string | null
+  lote_id: string | null
+  nome: string
+  codigo_qr: string
+  tipo_sal: string | null
   capacidade_kg: number | null
-  ativo:         boolean
-  updated_at:    string
+  ativo: boolean
+  created_at?: string | null
+  updated_at: string
+
   // joins opcionais
   fazenda?: Pick<Fazenda, 'nome' | 'codigo'>
-  lote?:   Pick<Lote, 'nome'>
+  lote?: Pick<Lote, 'nome'>
   retiro?: Pick<Retiro, 'nome'>
 }
 
 export interface Dispositivo {
-  id:            string
-  fazenda_id:    string
-  nome:          string
+  id: string
+  empresa_id?: string | null
+  fazenda_id: string
+  nome: string
   tratador_nome: string | null
-  ativo:         boolean
-  ultimo_sync:   string | null
+  ativo: boolean
+  ultimo_sync: string | null
   device_secret: string | null
-  created_at:    string
-  fazenda?:      Pick<Fazenda, 'nome' | 'codigo'>
+  created_at: string
+  updated_at?: string | null
+
+  // joins opcionais
+  fazenda?: Pick<Fazenda, 'nome' | 'codigo'>
 }
 
 export interface Abastecimento {
-  id:                 string
-  client_uuid:        string
-  dispositivo_id:     string
-  fazenda_id:         string
-  cocho_id:           string
-  lote_id:            string | null
+  id: string
+  client_uuid: string
+  dispositivo_id: string
+  fazenda_id: string
+  cocho_id: string
+  lote_id: string | null
   tipo_abastecimento: string
-  quantidade_kg:      number | null
-  observacao:         string | null
-  latitude:           number | null
-  longitude:          number | null
-  registrado_em:      string
-  sincronizado_em:    string | null
+  quantidade_kg: number | null
+  observacao: string | null
+  latitude: number | null
+  longitude: number | null
+  registrado_em: string
+  sincronizado_em: string | null
+
   // joins opcionais
-  cocho?:      Pick<Cocho, 'nome' | 'codigo_qr'>
-  lote?:       Pick<Lote, 'nome'>
+  cocho?: Pick<Cocho, 'nome' | 'codigo_qr'>
+  lote?: Pick<Lote, 'nome' | 'quantidade_animais'>
   dispositivo?: Pick<Dispositivo, 'nome' | 'tratador_nome'>
-  fazenda?:    Pick<Fazenda, 'nome'>
+  fazenda?: Pick<Fazenda, 'nome'>
 }
