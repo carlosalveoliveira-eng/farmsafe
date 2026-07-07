@@ -14,6 +14,7 @@ import DispositivosPage from './pages/DispositivosPage'
 import FazendasPage from './pages/FazendasPage'
 import MapaOperacionalPage from './pages/MapaOperacionalPage'
 import LogsPage from './pages/LogsPage'
+import InsumosPage from './pages/InsumosPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
@@ -62,15 +63,17 @@ export default function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
-          <Route path="abastecimentos" element={<AbastecimentosPage />} />
-          <Route path="cochos" element={<CochosPage />} />
-          <Route path="alertas" element={<AlertasPage />} />
-          <Route path="dispositivos" element={<DispositivosPage />} />
-          <Route path="fazendas" element={<FazendasPage />} />
-          <Route path="mapa-operacional" element={<MapaOperacionalPage />} />
-          <Route path="logs" element={<LogsPage />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+         <Route index element={<DashboardPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="abastecimentos" element={<AbastecimentosPage />} />
+        <Route path="insumos" element={<InsumosPage />} />
+        <Route path="cochos" element={<CochosPage />} />
+        <Route path="alertas" element={<AlertasPage />} />
+        <Route path="dispositivos" element={<DispositivosPage />} />
+        <Route path="fazendas" element={<FazendasPage />} />
+        <Route path="mapa-operacional" element={<MapaOperacionalPage />} />
+        <Route path="logs" element={<LogsPage />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

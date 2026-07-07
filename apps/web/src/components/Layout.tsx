@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   ClipboardList,
   Leaf,
+  Warehouse,
 } from 'lucide-react'
 
 import { supabase } from '../services/supabase'
@@ -18,6 +19,7 @@ import { supabase } from '../services/supabase'
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/abastecimentos', label: 'Abastecimentos', icon: Droplets },
+  { to: '/insumos', label: 'Insumos e Estoque', icon: Warehouse },
   { to: '/cochos', label: 'Cochos', icon: Box },
   { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
   { to: '/dispositivos', label: 'Dispositivos', icon: Smartphone },
