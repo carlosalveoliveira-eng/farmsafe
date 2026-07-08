@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Farmsafe</string>
+    <string name="title_activity_main">Farmsafe</string>
+    <string name="package_name">br.com.farmsafe.coletor</string>
+    <string name="custom_url_scheme">br.com.farmsafe.coletor</string>
+</resources>
