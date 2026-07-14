@@ -1382,7 +1382,12 @@
 <script>
   const APP_DOWNLOAD = {
     versionName: '1.0.0',
-    apkUrl: 'https://arqkclxwxjvgkkzopjxa.supabase.co/storage/v1/object/public/app-downloads/coletor/android/production/farmsafe-coletor-1.0.0.apk'
+
+    androidApkUrl:
+      'https://arqkclxwxjvgkkzopjxa.supabase.co/storage/v1/object/public/app-downloads/coletor/android/production/farmsafe-coletor-1.0.0.apk',
+
+    iosAppUrl:
+      'https://coletor.farmsafe.com.br/'
   }
 
   const apkLinks = document.querySelectorAll('[data-apk-link]')
@@ -1391,12 +1396,28 @@
   const copyButton = document.querySelector('[data-copy-link]')
   const toast = document.querySelector('[data-toast]')
 
-  function isApkUrlConfigured() {
+  const userAgent = navigator.userAgent || ''
+
+  const isAndroid = /Android/i.test(userAgent)
+
+  const isIOS =
+    /iPhone|iPad|iPod/i.test(userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+  function isAndroidUrlConfigured() {
     return Boolean(
-      APP_DOWNLOAD.apkUrl &&
-      APP_DOWNLOAD.apkUrl.trim() !== '' &&
-      APP_DOWNLOAD.apkUrl !== 'COLE_AQUI_A_URL_PUBLICA_DO_APK' &&
-      APP_DOWNLOAD.apkUrl.startsWith('https://')
+      APP_DOWNLOAD.androidApkUrl &&
+      APP_DOWNLOAD.androidApkUrl.trim() !== '' &&
+      APP_DOWNLOAD.androidApkUrl !== 'COLE_AQUI_A_URL_PUBLICA_DO_APK' &&
+      APP_DOWNLOAD.androidApkUrl.startsWith('https://')
+    )
+  }
+
+  function isIOSUrlConfigured() {
+    return Boolean(
+      APP_DOWNLOAD.iosAppUrl &&
+      APP_DOWNLOAD.iosAppUrl.trim() !== '' &&
+      APP_DOWNLOAD.iosAppUrl.startsWith('https://')
     )
   }
 
@@ -1416,10 +1437,45 @@
   })
 
   apkLinks.forEach((link) => {
-    if (isApkUrlConfigured()) {
-      link.href = APP_DOWNLOAD.apkUrl
+    if (isIOS) {
+      if (isIOSUrlConfigured()) {
+        link.href = APP_DOWNLOAD.iosAppUrl
+        link.removeAttribute('download')
+        link.setAttribute('rel', 'noopener')
+        link.textContent = 'Abrir FarmSafe Coletor'
+      } else {
+        link.href = '#'
+        link.addEventListener('click', (event) => {
+          event.preventDefault()
+          alert('A versão para iPhone ainda não está configurada.')
+        })
+      }
+
+      return
+    }
+
+    if (isAndroid) {
+      if (isAndroidUrlConfigured()) {
+        link.href = APP_DOWNLOAD.androidApkUrl
+        link.setAttribute('download', '')
+        link.setAttribute('rel', 'noopener')
+        link.textContent = '⬇️ Baixar APK Android'
+      } else {
+        link.href = '#'
+        link.addEventListener('click', (event) => {
+          event.preventDefault()
+          alert('Link de download ainda não configurado.')
+        })
+      }
+
+      return
+    }
+
+    if (isAndroidUrlConfigured()) {
+      link.href = APP_DOWNLOAD.androidApkUrl
       link.setAttribute('download', '')
       link.setAttribute('rel', 'noopener')
+      link.textContent = '⬇️ Baixar APK Android'
     } else {
       link.href = '#'
       link.addEventListener('click', (event) => {
@@ -1430,25 +1486,37 @@
   })
 
   if (deviceNote) {
-    const isAndroid = /Android/i.test(navigator.userAgent)
-
     if (isAndroid) {
-      deviceNote.innerHTML = '<strong>Você está no Android.</strong> Toque em “Baixar APK Android” e siga as instruções de instalação.'
+      deviceNote.innerHTML =
+        '<strong>Você está no Android.</strong> Toque em “Baixar APK Android” e siga as instruções de instalação.'
+    } else if (isIOS) {
+      deviceNote.innerHTML =
+        '<strong>Você está no iPhone/iPad.</strong> Toque em “Abrir FarmSafe Coletor” para acessar a versão otimizada para iPhone.'
     } else {
-      deviceNote.innerHTML = '<strong>Dica:</strong> para instalar com mais facilidade, abra esta página diretamente no celular Android que será usado em campo.'
+      deviceNote.innerHTML =
+        '<strong>Dica:</strong> no Android, baixe o APK. No iPhone, abra esta página pelo Safari e acesse a versão para iPhone.'
     }
   }
 
   if (copyButton) {
     copyButton.addEventListener('click', async () => {
-      if (!isApkUrlConfigured()) {
-        alert('Link de download ainda não configurado.')
+      const linkParaCopiar = isIOS
+        ? APP_DOWNLOAD.iosAppUrl
+        : APP_DOWNLOAD.androidApkUrl
+
+      if (!linkParaCopiar) {
+        alert('Link ainda não configurado.')
         return
       }
 
       try {
-        await navigator.clipboard.writeText(APP_DOWNLOAD.apkUrl)
-        showToast('Link do APK copiado')
+        await navigator.clipboard.writeText(linkParaCopiar)
+
+        if (isIOS) {
+          showToast('Link do FarmSafe Coletor copiado')
+        } else {
+          showToast('Link do APK copiado')
+        }
       } catch {
         showToast('Não foi possível copiar automaticamente')
       }
