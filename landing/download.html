@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Download FarmSafe Coletor Android | App de Campo</title>
+
+  <meta name="description" content="Baixe o FarmSafe Coletor Android. App de campo para leitura de QR Code, abastecimento de cochos, operação offline, GPS e sincronização com a plataforma FarmSafe." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#1e7042" />
+
+  <link rel="canonical" href="https://www.farmsafe.com.br/download" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Download FarmSafe Coletor Android" />
+  <meta property="og:description" content="Aplicativo oficial de campo para registro offline de abastecimentos com QR Code, GPS e sincronização." />
+  <meta property="og:image" content="https://www.farmsafe.com.br/og-cover.png" />
+  <meta property="og:url" content="https://www.farmsafe.com.br/download" />
+  <meta property="og:site_name" content="FarmSafe" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+
+    :root{
+      --green:#1e7042;
+      --green-2:#2da64e;
+      --green-3:#e7f4eb;
+      --dark:#092016;
+      --dark-2:#0e2c1d;
+      --text:#132019;
+      --muted:#66736b;
+      --beige:#f7f4ed;
+      --beige-2:#eee8dc;
+      --white:#fff;
+      --border:#ded8cc;
+      --danger:#b42318;
+      --warning:#9a6700;
+      --shadow:0 24px 70px rgba(17,35,24,.14);
+      --shadow-soft:0 10px 28px rgba(20,35,25,.08);
+      --radius:22px;
+      --font-h:'Sora',sans-serif;
+      --font-b:'DM Sans',sans-serif;
+    }
+
+    html{scroll-behavior:smooth}
+
+    body{
+      font-family:var(--font-b);
+      background:#fff;
+      color:var(--text);
+      line-height:1.6;
+      padding-bottom:0;
+    }
+
+    a{text-decoration:none;color:inherit}
+    img{max-width:100%;display:block}
+    button{font:inherit}
+
+    .container{
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:0 22px;
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:50;
+      background:rgba(255,255,255,.94);
+      backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--border);
+    }
+
+    .nav{
+      min-height:70px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+    }
+
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      font-family:var(--font-h);
+      font-weight:800;
+      color:var(--green);
+      font-size:21px;
+      white-space:nowrap;
+    }
+
+    .logo-mark{
+      width:42px;
+      height:42px;
+      border-radius:12px;
+      background:var(--green);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-weight:800;
+      flex:0 0 auto;
+    }
+
+    .links{
+      display:flex;
+      align-items:center;
+      gap:26px;
+      font-size:14px;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .links a:hover{color:var(--green)}
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      border-radius:14px;
+      padding:13px 18px;
+      font-weight:800;
+      font-size:14px;
+      line-height:1;
+      transition:.2s;
+      border:0;
+      cursor:pointer;
+      text-align:center;
+      min-height:46px;
+    }
+
+    .btn-primary{
+      background:var(--green);
+      color:#fff;
+      box-shadow:0 10px 25px rgba(30,112,66,.24);
+    }
+
+    .btn-primary:hover{
+      background:#155c35;
+      transform:translateY(-1px);
+    }
+
+    .btn-secondary{
+      background:#fff;
+      border:1px solid var(--border);
+      color:var(--text);
+    }
+
+    .btn-secondary:hover{
+      border-color:var(--green);
+      color:var(--green);
+    }
+
+    .btn-dark{
+      background:var(--dark);
+      color:#fff;
+    }
+
+    .btn-light{
+      background:#fff;
+      color:var(--green);
+    }
+
+    .btn-block{
+      width:100%;
+    }
+
+    .mobile-top-action{
+      display:none;
+    }
+
+    .hero{
+      background:
+        radial-gradient(circle at 80% 20%,rgba(45,166,78,.18),transparent 32%),
+        linear-gradient(135deg,var(--beige) 0%,#fff 52%,#eef7f0 100%);
+      padding:58px 0 54px;
+      overflow:hidden;
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1fr .82fr;
+      gap:44px;
+      align-items:center;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      background:var(--green-3);
+      color:var(--green);
+      border:1px solid #cde7d4;
+      border-radius:999px;
+      padding:8px 14px;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:20px;
+    }
+
+    h1{
+      font-family:var(--font-h);
+      font-size:clamp(34px,5vw,58px);
+      line-height:1.05;
+      letter-spacing:-1.8px;
+      margin-bottom:20px;
+      color:#081c12;
+    }
+
+    h1 span{color:var(--green)}
+
+    .lead{
+      font-size:19px;
+      color:var(--muted);
+      max-width:660px;
+      margin-bottom:26px;
+    }
+
+    .download-box{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:26px;
+      padding:18px;
+      box-shadow:var(--shadow-soft);
+      max-width:680px;
+      margin-bottom:18px;
+    }
+
+    .download-box-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      margin-bottom:16px;
+    }
+
+    .app-title{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .app-icon{
+      width:54px;
+      height:54px;
+      border-radius:16px;
+      background:linear-gradient(135deg,#092016,#1e7042);
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:26px;
+      flex:0 0 auto;
+      box-shadow:0 14px 28px rgba(9,32,22,.2);
+    }
+
+    .app-title strong{
+      display:block;
+      font-family:var(--font-h);
+      font-size:18px;
+      color:var(--text);
+    }
+
+    .app-title small{
+      display:block;
+      color:var(--muted);
+      font-weight:700;
+      margin-top:2px;
+    }
+
+    .version-pill{
+      border-radius:999px;
+      padding:8px 12px;
+      background:#f1f6f3;
+      color:var(--green);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .download-actions{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+    }
+
+    .device-note{
+      margin-top:13px;
+      border-radius:16px;
+      padding:12px 14px;
+      background:#f8faf9;
+      color:var(--muted);
+      font-size:14px;
+      border:1px solid #e5ebe7;
+    }
+
+    .device-note strong{color:var(--text)}
+
+    .quick-nav{
+      display:flex;
+      gap:10px;
+      overflow:auto;
+      padding:4px 0 2px;
+      scrollbar-width:none;
+      margin-top:18px;
+    }
+
+    .quick-nav::-webkit-scrollbar{display:none}
+
+    .quick-nav a{
+      flex:0 0 auto;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.78);
+      color:var(--text);
+      border-radius:999px;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .quick-nav a:hover{
+      border-color:var(--green);
+      color:var(--green);
+    }
+
+    .phone-card{
+      position:relative;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:30px;
+      padding:26px;
+      box-shadow:var(--shadow);
+    }
+
+    .phone-frame{
+      width:235px;
+      margin:0 auto;
+      border-radius:38px;
+      border:9px solid #111;
+      overflow:hidden;
+      background:#111;
+      box-shadow:0 28px 70px rgba(0,0,0,.24);
+    }
+
+    .phone-frame img{width:100%}
+
+    .floating-status{
+      position:absolute;
+      left:20px;
+      right:20px;
+      bottom:20px;
+      background:rgba(9,32,22,.94);
+      color:#fff;
+      border-radius:20px;
+      padding:16px;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+      box-shadow:0 16px 38px rgba(0,0,0,.22);
+    }
+
+    .floating-status-icon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      background:rgba(45,166,78,.22);
+      display:grid;
+      place-items:center;
+      font-size:22px;
+    }
+
+    .floating-status strong{
+      display:block;
+      font-size:14px;
+    }
+
+    .floating-status small{
+      color:rgba(255,255,255,.72);
+      font-size:12px;
+    }
+
+    section{padding:74px 0}
+
+    .section-head{
+      text-align:center;
+      max-width:780px;
+      margin:0 auto 42px;
+    }
+
+    .label{
+      color:var(--green);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      font-size:12px;
+      margin-bottom:10px;
+    }
+
+    h2{
+      font-family:var(--font-h);
+      font-size:clamp(29px,4vw,44px);
+      line-height:1.15;
+      letter-spacing:-1px;
+      margin-bottom:14px;
+    }
+
+    .section-head p{
+      color:var(--muted);
+      font-size:18px;
+    }
+
+    .cards-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:18px;
+    }
+
+    .card{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:26px;
+      box-shadow:0 8px 24px rgba(20,35,25,.05);
+    }
+
+    .icon{
+      width:48px;
+      height:48px;
+      border-radius:14px;
+      background:#e8f4ed;
+      color:var(--green);
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      margin-bottom:16px;
+    }
+
+    .card h3{
+      font-family:var(--font-h);
+      font-size:18px;
+      margin-bottom:8px;
+    }
+
+    .card p{
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .steps{
+      background:var(--beige);
+    }
+
+    .steps-grid{
+      display:grid;
+      grid-template-columns:.88fr 1.12fr;
+      gap:38px;
+      align-items:start;
+    }
+
+    .install-panel{
+      position:sticky;
+      top:94px;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:28px;
+      padding:24px;
+      box-shadow:var(--shadow);
+    }
+
+    .install-panel h2{
+      font-size:30px;
+      margin-bottom:10px;
+    }
+
+    .install-panel p{
+      color:var(--muted);
+      margin-bottom:20px;
+    }
+
+    .mini-checks{
+      display:grid;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .mini-check{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .mini-check span{
+      color:var(--green);
+      font-weight:900;
+    }
+
+    .step-list{
+      display:grid;
+      gap:14px;
+    }
+
+    .step-item{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:18px;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:14px;
+      box-shadow:0 8px 20px rgba(20,35,25,.04);
+    }
+
+    .num{
+      width:38px;
+      height:38px;
+      border-radius:50%;
+      background:var(--green);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-weight:900;
+      flex:0 0 auto;
+    }
+
+    .step-item strong{
+      display:block;
+      font-family:var(--font-h);
+      margin-bottom:4px;
+    }
+
+    .step-item span{
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .warning-box{
+      margin-top:16px;
+      border-radius:20px;
+      padding:18px;
+      border:1px solid #f0d98b;
+      background:#fff8db;
+      color:#6f4d00;
+      font-size:15px;
+    }
+
+    .warning-box strong{
+      display:block;
+      color:#4d3600;
+      margin-bottom:4px;
+    }
+
+    .faq-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:18px;
+    }
+
+    .faq{
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:24px;
+      background:#fff;
+      box-shadow:0 8px 24px rgba(20,35,25,.04);
+    }
+
+    .faq h3{
+      font-family:var(--font-h);
+      font-size:17px;
+      margin-bottom:8px;
+    }
+
+    .faq p{
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .support{
+      background:linear-gradient(135deg,#0b2819,#1e7042);
+      color:#fff;
+      text-align:center;
+    }
+
+    .support p{
+      color:rgba(255,255,255,.78);
+      font-size:18px;
+      max-width:720px;
+      margin:0 auto 28px;
+    }
+
+    .support-actions{
+      display:flex;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+
+    footer{
+      background:#081c12;
+      color:rgba(255,255,255,.72);
+      padding:52px 0 26px;
+    }
+
+    .footer-grid{
+      display:grid;
+      grid-template-columns:1.5fr 1fr 1fr 1fr;
+      gap:34px;
+      margin-bottom:38px;
+    }
+
+    footer h4{
+      color:#fff;
+      font-family:var(--font-h);
+      margin-bottom:12px;
+    }
+
+    footer a{
+      display:block;
+      margin-bottom:8px;
+      color:rgba(255,255,255,.62);
+    }
+
+    footer a:hover{color:#fff}
+
+    .copyright{
+      border-top:1px solid rgba(255,255,255,.12);
+      padding-top:22px;
+      font-size:13px;
+      color:rgba(255,255,255,.45);
+    }
+
+    .mobile-sticky{
+      display:none;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:92px;
+      transform:translateX(-50%) translateY(20px);
+      background:#092016;
+      color:#fff;
+      border-radius:999px;
+      padding:12px 16px;
+      font-size:14px;
+      font-weight:800;
+      opacity:0;
+      pointer-events:none;
+      transition:.2s;
+      z-index:80;
+      box-shadow:0 16px 38px rgba(0,0,0,.25);
+      max-width:calc(100% - 32px);
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media(max-width:960px){
+      .links,.actions{display:none}
+
+      .mobile-top-action{
+        display:inline-flex;
+      }
+
+      .hero{
+        padding:34px 0 38px;
+      }
+
+      .hero-grid{
+        grid-template-columns:1fr;
+        gap:28px;
+      }
+
+      .hero .phone-card{
+        display:none;
+      }
+
+      .lead{
+        font-size:17px;
+      }
+
+      .download-box{
+        padding:16px;
+        border-radius:24px;
+      }
+
+      .download-box-head{
+        align-items:center;
+      }
+
+      .download-actions{
+        grid-template-columns:1fr;
+      }
+
+      .quick-nav{
+        margin-left:-22px;
+        margin-right:-22px;
+        padding-left:22px;
+        padding-right:22px;
+      }
+
+      section{
+        padding:58px 0;
+      }
+
+      .cards-grid,.faq-grid{
+        grid-template-columns:1fr;
+      }
+
+      .steps-grid{
+        grid-template-columns:1fr;
+      }
+
+      .install-panel{
+        position:relative;
+        top:auto;
+      }
+
+      .footer-grid{
+        grid-template-columns:1fr;
+      }
+
+      body{
+        padding-bottom:calc(82px + env(safe-area-inset-bottom));
+      }
+
+      .mobile-sticky{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        z-index:70;
+        display:block;
+        background:rgba(255,255,255,.96);
+        backdrop-filter:blur(14px);
+        border-top:1px solid var(--border);
+        padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+        box-shadow:0 -12px 30px rgba(17,35,24,.12);
+      }
+
+      .mobile-sticky-inner{
+        display:grid;
+        grid-template-columns:1fr auto;
+        gap:10px;
+        align-items:center;
+      }
+
+      .mobile-sticky small{
+        display:block;
+        color:var(--muted);
+        font-size:12px;
+        font-weight:700;
+      }
+
+      .mobile-sticky strong{
+        display:block;
+        font-size:14px;
+        line-height:1.2;
+        color:var(--text);
+      }
+
+      .mobile-sticky .btn{
+        padding:13px 16px;
+        min-width:132px;
+      }
+    }
+
+    @media(max-width:520px){
+      .container{
+        padding:0 18px;
+      }
+
+      .nav{
+        min-height:64px;
+      }
+
+      .logo{
+        font-size:18px;
+      }
+
+      .logo-mark{
+        width:38px;
+        height:38px;
+        border-radius:11px;
+      }
+
+      .mobile-top-action{
+        padding:11px 13px;
+        font-size:13px;
+      }
+
+      h1{
+        font-size:36px;
+        letter-spacing:-1.2px;
+      }
+
+      .eyebrow{
+        font-size:11px;
+      }
+
+      .app-icon{
+        width:48px;
+        height:48px;
+        border-radius:14px;
+      }
+
+      .app-title strong{
+        font-size:16px;
+      }
+
+      .version-pill{
+        display:none;
+      }
+
+      .card,.faq,.install-panel,.step-item{
+        border-radius:18px;
+      }
+
+      .step-item{
+        grid-template-columns:1fr;
+      }
+
+      .num{
+        width:34px;
+        height:34px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="container nav">
+    <a href="/" class="logo">
+      <span class="logo-mark">FS</span>
+      FarmSafe
+    </a>
+
+    <nav class="links">
+      <a href="/#sistema">Sistema</a>
+      <a href="/#app">App de campo</a>
+      <a href="/#mapa">Mapa</a>
+      <a href="/#planos">Planos</a>
+      <a href="/download">Download</a>
+    </nav>
+
+    <div class="actions">
+      <a class="btn btn-secondary" href="https://app.farmsafe.com.br/login">Área do Cliente</a>
+      <a class="btn btn-primary" href="/#contato">Solicitar demo</a>
+    </div>
+
+    <a class="btn btn-primary mobile-top-action" href="#download-principal">
+      Baixar
+    </a>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="download-principal">
+    <div class="container hero-grid">
+      <div>
+        <div class="eyebrow">App oficial de campo</div>
+
+        <h1>Baixe o <span>FarmSafe Coletor</span> no Android.</h1>
+
+        <p class="lead">
+          Aplicativo de campo para leitura de QR Code, registro de abastecimento de cochos,
+          operação offline, GPS e sincronização com a plataforma FarmSafe.
+        </p>
+
+        <div class="download-box">
+          <div class="download-box-head">
+            <div class="app-title">
+              <div class="app-icon">🐄</div>
+              <div>
+                <strong>FarmSafe Coletor Android</strong>
+                <small>APK oficial para uso em campo</small>
+              </div>
+            </div>
+
+            <div class="version-pill" data-version-label>
+              Versão 1.0.0
+            </div>
+          </div>
+
+          <div class="download-actions">
+            <a class="btn btn-primary btn-block" data-apk-link href="#">
+              ⬇️ Baixar APK Android
+            </a>
+
+            <button class="btn btn-secondary" type="button" data-copy-link>
+              Copiar link
+            </button>
+          </div>
+
+          <div class="device-note" data-device-note>
+            <strong>Dica:</strong> abra esta página diretamente no celular Android que será usado em campo.
+          </div>
+        </div>
+
+        <div class="quick-nav" aria-label="Navegação rápida">
+          <a href="#instrucoes">Como instalar</a>
+          <a href="#antes-de-usar">Antes de usar</a>
+          <a href="#recursos">Recursos</a>
+          <a href="#duvidas">Dúvidas</a>
+          <a href="#suporte">Suporte</a>
+        </div>
+      </div>
+
+      <div class="phone-card">
+        <div class="phone-frame">
+          <img src="/images/app-confirmar.png" alt="Tela do FarmSafe Coletor Android" />
+        </div>
+
+        <div class="floating-status">
+          <div class="floating-status-icon">✅</div>
+          <div>
+            <strong>Pronto para o campo</strong>
+            <small>QR Code • GPS • Offline • Sincronização</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="instrucoes" class="steps">
+    <div class="container steps-grid">
+      <aside class="install-panel">
+        <div class="label">Instalação rápida</div>
+
+        <h2>Como instalar no celular</h2>
+
+        <p>
+          Use esta página no próprio Android. Baixe o APK, autorize a instalação
+          e ative o dispositivo com o código interno da fazenda.
+        </p>
+
+        <a class="btn btn-primary btn-block" data-apk-link href="#">
+          ⬇️ Baixar FarmSafe Coletor
+        </a>
+
+        <div class="mini-checks" id="antes-de-usar">
+          <div class="mini-check"><span>✓</span> Tenha internet na primeira ativação.</div>
+          <div class="mini-check"><span>✓</span> Permita acesso à câmera para ler QR Codes.</div>
+          <div class="mini-check"><span>✓</span> Permita localização quando solicitado.</div>
+          <div class="mini-check"><span>✓</span> Use data e hora automáticas no Android.</div>
+        </div>
+
+        <div class="warning-box">
+          <strong>Importante</strong>
+          O código interno de ativação deve ser fornecido apenas pela administração da fazenda.
+        </div>
+      </aside>
+
+      <div class="step-list">
+        <div class="step-item">
+          <div class="num">1</div>
+          <div>
+            <strong>Toque em “Baixar APK Android”</strong>
+            <span>O arquivo do FarmSafe Coletor será baixado no celular.</span>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="num">2</div>
+          <div>
+            <strong>Abra o arquivo baixado</strong>
+            <span>Normalmente ele aparece na barra de notificações ou na pasta Downloads.</span>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="num">3</div>
+          <div>
+            <strong>Autorize a instalação</strong>
+            <span>O Android pode pedir permissão para instalar aplicativos de origem externa.</span>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="num">4</div>
+          <div>
+            <strong>Abra o FarmSafe Coletor</strong>
+            <span>Depois de instalado, toque no ícone do aplicativo na tela inicial.</span>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="num">5</div>
+          <div>
+            <strong>Ative o dispositivo</strong>
+            <span>Informe o código interno da fazenda para liberar os cochos e insumos autorizados.</span>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="num">6</div>
+          <div>
+            <strong>Baixe os dados offline</strong>
+            <span>Antes de ir ao campo, atualize os dados do coletor com internet disponível.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="recursos">
+    <div class="container">
+      <div class="section-head">
+        <div class="label">Recursos do app</div>
+        <h2>Feito para a rotina real da fazenda</h2>
+        <p>
+          O FarmSafe Coletor foi pensado para ser simples para o tratador,
+          seguro para a gestão e confiável mesmo em áreas sem sinal.
+        </p>
+      </div>
+
+      <div class="cards-grid">
+        <div class="card">
+          <div class="icon">📷</div>
+          <h3>Leitura por QR Code</h3>
+          <p>Identifica o cocho rapidamente, reduzindo digitação manual e erro operacional.</p>
+        </div>
+
+        <div class="card">
+          <div class="icon">📡</div>
+          <h3>Funciona offline</h3>
+          <p>Registros ficam salvos no aparelho e são enviados quando a internet voltar.</p>
+        </div>
+
+        <div class="card">
+          <div class="icon">📍</div>
+          <h3>Auditoria GPS</h3>
+          <p>Permite registrar localização, data, horário, dispositivo e cocho abastecido.</p>
+        </div>
+
+        <div class="card">
+          <div class="icon">🔒</div>
+          <h3>Sem login do tratador</h3>
+          <p>O celular é ativado com código interno. O painel web continua restrito à gestão.</p>
+        </div>
+
+        <div class="card">
+          <div class="icon">📦</div>
+          <h3>Controle de insumos</h3>
+          <p>Os abastecimentos podem alimentar o consumo de estoque no sistema FarmSafe.</p>
+        </div>
+
+        <div class="card">
+          <div class="icon">🧾</div>
+          <h3>Histórico local</h3>
+          <p>O operador consegue consultar registros pendentes, sincronizados ou com alerta.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="duvidas" class="steps">
+    <div class="container">
+      <div class="section-head">
+        <div class="label">Dúvidas comuns</div>
+        <h2>Informações importantes</h2>
+        <p>
+          Orientações rápidas para instalação, uso em campo e suporte.
+        </p>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq">
+          <h3>O app funciona sem internet?</h3>
+          <p>Sim. O registro fica salvo no celular e sincroniza quando houver conexão.</p>
+        </div>
+
+        <div class="faq">
+          <h3>O tratador precisa de senha?</h3>
+          <p>Não. O dispositivo é ativado com código interno da fazenda.</p>
+        </div>
+
+        <div class="faq">
+          <h3>Precisa instalar pela Play Store?</h3>
+          <p>Nesta versão, a instalação é feita por APK oficial distribuído pela FarmSafe.</p>
+        </div>
+
+        <div class="faq">
+          <h3>Como atualizar o app?</h3>
+          <p>Quando houver versão nova, a administração poderá baixar o novo APK oficial.</p>
+        </div>
+
+        <div class="faq">
+          <h3>E se o QR Code não abrir?</h3>
+          <p>Atualize os dados offline do coletor e confirme se o cocho está ativo no sistema.</p>
+        </div>
+
+        <div class="faq">
+          <h3>Quem deve instalar?</h3>
+          <p>A instalação deve ser feita pelo responsável técnico, suporte ou administração da fazenda.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="suporte" class="support">
+    <div class="container">
+      <h2>Precisa de ajuda para instalar?</h2>
+      <p>
+        Fale com a equipe FarmSafe para receber orientação sobre instalação,
+        ativação do dispositivo e uso em campo.
+      </p>
+
+      <div class="support-actions">
+        <a class="btn btn-light" href="mailto:suporte@farmsafe.com.br">
+          suporte@farmsafe.com.br
+        </a>
+
+        <a class="btn btn-primary" href="https://wa.me/5565992694127">
+          Falar no WhatsApp
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="logo" style="color:#fff;margin-bottom:14px">
+          <span class="logo-mark">FS</span>
+          FarmSafe
+        </div>
+        <p>Plataforma operacional rural para rastreabilidade, auditoria e controle de abastecimentos.</p>
+      </div>
+
+      <div>
+        <h4>Produto</h4>
+        <a href="/#sistema">Sistema Web</a>
+        <a href="/#app">App de campo</a>
+        <a href="/download">Download</a>
+      </div>
+
+      <div>
+        <h4>Empresa</h4>
+        <a href="/#contato">Contato</a>
+        <a href="mailto:comercial@farmsafe.com.br">Comercial</a>
+        <a href="mailto:suporte@farmsafe.com.br">Suporte</a>
+      </div>
+
+      <div>
+        <h4>Legal</h4>
+        <a href="/privacidade">Privacidade</a>
+        <a href="/termos">Termos de uso</a>
+        <a href="/lgpd">LGPD</a>
+      </div>
+    </div>
+
+    <div class="copyright">
+      © 2026 FarmSafe. Todos os direitos reservados.
+    </div>
+  </div>
+</footer>
+
+<div class="mobile-sticky">
+  <div class="mobile-sticky-inner">
+    <div>
+      <strong>FarmSafe Coletor</strong>
+      <small data-version-label>Versão 1.0.0</small>
+    </div>
+
+    <a class="btn btn-primary" data-apk-link href="#">
+      Baixar
+    </a>
+  </div>
+</div>
+
+<div class="toast" data-toast>
+  Link copiado
+</div>
+
+<script>
+  const APP_DOWNLOAD = {
+    versionName: '1.0.0',
+    apkUrl: 'https://arqkclxwxjvgkkzopjxa.supabase.co/storage/v1/object/public/app-downloads/coletor/android/production/farmsafe-coletor-1.0.0.apk'
+  }
+
+  const apkLinks = document.querySelectorAll('[data-apk-link]')
+  const versionLabels = document.querySelectorAll('[data-version-label]')
+  const deviceNote = document.querySelector('[data-device-note]')
+  const copyButton = document.querySelector('[data-copy-link]')
+  const toast = document.querySelector('[data-toast]')
+
+  function isApkUrlConfigured() {
+  return Boolean(
+    APP_DOWNLOAD.apkUrl &&
+    APP_DOWNLOAD.apkUrl.trim() !== '' &&
+    APP_DOWNLOAD.apkUrl !== 'COLE_AQUI_A_URL_PUBLICA_DO_APK' &&
+    APP_DOWNLOAD.apkUrl.startsWith('https://')
+  )
+}
+
+  function showToast(message) {
+    if (!toast) return
+
+    toast.textContent = message
+    toast.classList.add('show')
+
+    window.setTimeout(() => {
+      toast.classList.remove('show')
+    }, 2200)
+  }
+
+  versionLabels.forEach((item) => {
+    item.textContent = `Versão ${APP_DOWNLOAD.versionName}`
+  })
+
+  apkLinks.forEach((link) => {
+    if (isApkUrlConfigured()) {
+      link.href = APP_DOWNLOAD.apkUrl
+      link.setAttribute('download', '')
+      link.setAttribute('rel', 'noopener')
+    } else {
+      link.href = '#'
+      link.addEventListener('click', (event) => {
+        event.preventDefault()
+        alert('Link de download ainda não configurado.')
+      })
+    }
+  })
+
+  if (deviceNote) {
+    const isAndroid = /Android/i.test(navigator.userAgent)
+
+    if (isAndroid) {
+      deviceNote.innerHTML = '<strong>Você está no Android.</strong> Toque em “Baixar APK Android” e siga as instruções de instalação.'
+    } else {
+      deviceNote.innerHTML = '<strong>Dica:</strong> para instalar com mais facilidade, abra esta página diretamente no celular Android que será usado em campo.'
+    }
+  }
+
+  if (copyButton) {
+    copyButton.addEventListener('click', async () => {
+      if (!isApkUrlConfigured()) {
+        alert('Link de download ainda não configurado.')
+        return
+      }
+
+      try {
+        await navigator.clipboard.writeText(APP_DOWNLOAD.apkUrl)
+        showToast('Link do APK copiado')
+      } catch {
+        showToast('Não foi possível copiar automaticamente')
+      }
+    })
+  }
+</script>
+</body>
+</html>
