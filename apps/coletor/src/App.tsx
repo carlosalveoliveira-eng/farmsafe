@@ -147,7 +147,7 @@ function App() {
         }
 
         const tempoPassado = Date.now() - inicio
-        const esperaMinima = Math.max(0, 900 - tempoPassado)
+        const esperaMinima = Math.max(0, 2500 - tempoPassado)
 
         window.setTimeout(() => {
           setInicializando(false)
