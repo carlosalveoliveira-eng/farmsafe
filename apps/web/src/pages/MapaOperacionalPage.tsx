@@ -27,6 +27,10 @@ import {
   loadFarmMapGeoJson,
 } from '../services/map/MapService'
 
+import MapLegend from '../features/mapa/MapLegend'
+import MapPastoLabel from '../features/mapa/MapPastoLabel'
+import { getAreaStyle } from '../features/mapa/mapTheme'
+
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
 
 type PontoMapa = Abastecimento & {
@@ -108,20 +112,46 @@ function AtualizarCentro({
   const map = useMap()
 
   useEffect(() => {
+    const zoomMaximo = 16
+
+    map.setMaxZoom(zoomMaximo)
+    map.options.maxBoundsViscosity = 1
+
     if (geojson?.features?.length) {
       const layer = L.geoJSON(geojson as any)
       const bounds = layer.getBounds()
 
       if (bounds.isValid()) {
+        const padding: [number, number] = [34, 34]
+        const paddingPoint = L.point(34, 34)
+
+        const zoomParaEnquadrar = map.getBoundsZoom(
+          bounds,
+          false,
+          paddingPoint
+        )
+
+        const zoomMinimo = Math.max(
+          10,
+          Math.min(zoomParaEnquadrar, 17)
+        )
+
+        map.setMinZoom(zoomMinimo)
+        map.setMaxZoom(zoomMaximo)
+
         map.fitBounds(bounds, {
-          padding: [36, 36],
-          maxZoom: 16,
+          padding,
+          maxZoom: Math.min(16, zoomMaximo),
         })
+
+        map.setMaxBounds(bounds.pad(0.04))
 
         return
       }
     }
 
+    map.setMinZoom(12)
+    map.setMaxZoom(zoomMaximo)
     map.setView(centro, zoom)
   }, [centro, zoom, geojson, map])
 
@@ -464,7 +494,10 @@ const [erroMapaFazenda, setErroMapaFazenda] = useState<string | null>(null)
             <MapContainer
               center={centro}
               zoom={16}
+              minZoom={10}
+              maxZoom={16}
               scrollWheelZoom
+              maxBoundsViscosity={1}
               className="w-full h-full"
             >
               <AtualizarCentro
@@ -476,21 +509,28 @@ const [erroMapaFazenda, setErroMapaFazenda] = useState<string | null>(null)
               <TileLayer
                 attribution="Tiles © Esri"
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                noWrap
+                maxZoom={16}
+                maxNativeZoom={16}
               />
 
               {geojsonFazenda?.features.length ? (
-                <GeoJSON
-                  key={`${mapaFazenda?.id ?? 'mapa'}-${geojsonFazenda.features.length}`}
-                  data={geojsonFazenda as any}
-                  style={() => ({
-                    color: '#16a34a',
-                    weight: 1.5,
-                    opacity: 0.9,
-                    fillColor: '#22c55e',
-                    fillOpacity: 0.045,
-                  })}
-                />
-              ) : null}
+                  <>
+                    <GeoJSON
+                      key={`${mapaFazenda?.id ?? 'mapa'}-${geojsonFazenda.features.length}`}
+                      data={geojsonFazenda as any}
+                      style={(feature) => getAreaStyle(feature)}
+                    />
+
+                    {geojsonFazenda.features.map((feature, index) => (
+                      <MapPastoLabel
+                        key={`${mapaFazenda?.id ?? 'mapa'}-label-${index}`}
+                        feature={feature}
+                        index={index}
+                      />
+                    ))}
+                  </>
+                ) : null}
 
               {rota.length > 1 && (
                 <Polyline
@@ -588,6 +628,9 @@ const [erroMapaFazenda, setErroMapaFazenda] = useState<string | null>(null)
                 </Marker>
               ))}
             </MapContainer>
+
+            <MapLegend />
+            
           </div>
         )}
       </SectionCard>
