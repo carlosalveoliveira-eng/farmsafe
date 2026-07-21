@@ -15,6 +15,7 @@ import FazendasPage from './pages/FazendasPage'
 import MapaOperacionalPage from './pages/MapaOperacionalPage'
 import LogsPage from './pages/LogsPage'
 import InsumosPage from './pages/InsumosPage'
+import UsuariosPage from './pages/UsuariosPage'
 import { getEmpresaUsuario } from './services/auth'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -104,6 +105,7 @@ export default function App() {
         <Route path="fazendas" element={<FazendasPage />} />
         <Route path="mapa-operacional" element={<MapaOperacionalPage />} />
         <Route path="logs" element={<LogsPage />} />
+        <Route path="usuarios" element={<UsuariosPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

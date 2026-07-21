@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Leaf,
   Warehouse,
+  UsersRound,
 } from 'lucide-react'
 
 import { supabase } from '../services/supabase'
@@ -24,6 +25,7 @@ const NAV = [
   { to: '/alertas', label: 'Alertas', icon: AlertTriangle },
   { to: '/dispositivos', label: 'Dispositivos', icon: Smartphone },
   { to: '/fazendas', label: 'Fazendas', icon: Building2 },
+  { to: '/usuarios', label: 'Usuários', icon: UsersRound },
   { to: '/mapa-operacional', label: 'Mapa Operacional', icon: MapPinned },
   { to: '/logs', label: 'Logs', icon: ClipboardList },
 ]
