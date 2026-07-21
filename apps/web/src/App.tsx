@@ -15,35 +15,66 @@ import FazendasPage from './pages/FazendasPage'
 import MapaOperacionalPage from './pages/MapaOperacionalPage'
 import LogsPage from './pages/LogsPage'
 import InsumosPage from './pages/InsumosPage'
+import { getEmpresaUsuario } from './services/auth'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null | undefined>(undefined)
+  const [status, setStatus] = useState<
+    'carregando' | 'autorizado' | 'negado'
+  >('carregando')
 
   useEffect(() => {
+    let mounted = true
+
+    async function validarAcesso(session: Session | null) {
+      if (!mounted) return
+
+      if (!session) {
+        setStatus('negado')
+        return
+      }
+
+      try {
+        await getEmpresaUsuario()
+
+        if (mounted) {
+          setStatus('autorizado')
+        }
+      } catch (error) {
+        console.error('Acesso negado:', error)
+
+        await supabase.auth.signOut()
+
+        if (mounted) {
+          setStatus('negado')
+        }
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+      validarAcesso(data.session)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setSession(session)
+        validarAcesso(session)
       }
     )
 
     return () => {
+      mounted = false
       listener.subscription.unsubscribe()
     }
   }, [])
 
-  if (session === undefined) {
+  if (status === 'carregando') {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center text-ink-muted">
-        Carregando...
+        Validando acesso...
       </div>
     )
   }
 
-  if (!session) {
+  if (status === 'negado') {
     return <Navigate to="/login" replace />
   }
 
