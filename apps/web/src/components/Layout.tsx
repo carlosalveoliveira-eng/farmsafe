@@ -101,7 +101,7 @@ export default function Layout() {
               <span className="w-2 h-2 rounded-full bg-ok animate-pulse" />
 
               <span className="text-xs font-medium text-ink-secondary">
-                Supabase conectado
+                Sistema online
               </span>
             </div>
           </div>

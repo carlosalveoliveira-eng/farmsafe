@@ -295,13 +295,13 @@ Deno.serve(async (req: Request) => {
     })
 
   if (conviteError || !convite.user?.id) {
+    console.error('Erro ao criar convite:', conviteError)
+
     return jsonResponse(
       req,
       {
         ok: false,
-        erro:
-          conviteError?.message ??
-          'Não foi possível criar o convite do usuário.',
+        erro: 'Não foi possível enviar o convite. Verifique o e-mail e tente novamente.',
       },
       400
     )
@@ -328,15 +328,15 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (perfilError) {
+    console.error('Erro ao criar perfil do usuário:', perfilError)
+
     await adminClient.auth.admin.deleteUser(authUserId)
 
     return jsonResponse(
       req,
       {
         ok: false,
-        erro:
-          perfilError.message ??
-          'Convite cancelado porque o perfil não pôde ser criado.',
+        erro: 'Não foi possível concluir o convite. Tente novamente.',
       },
       400
     )

@@ -36,10 +36,11 @@ export default function LoginPage() {
     setLoading(false)
 
     if (error) {
-      alert('Erro ao entrar: ' + error.message)
-      return
-    }
+    console.error('Falha no login:', error)
 
+    alert('E-mail ou senha inválidos. Verifique os dados e tente novamente.')
+    return
+  }
     navigate('/')
   }
 

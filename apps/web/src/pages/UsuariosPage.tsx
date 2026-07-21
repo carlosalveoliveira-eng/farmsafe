@@ -8,9 +8,12 @@ import {
   Pencil,
   Save,
   X,
+  Plus,
+  Send,
 } from 'lucide-react'
 
 import { supabase } from '../services/supabase'
+import { convidarUsuario } from '../services/usuarios'
 import PageHeader from '../components/ui/PageHeader'
 import SectionCard from '../components/ui/SectionCard'
 
@@ -43,6 +46,14 @@ type UsuarioForm = {
   telefone: string
   role: PerfilSistema
   ativo: boolean
+}
+
+type ConviteForm = {
+  nome: string
+  email: string
+  cargo: string
+  telefone: string
+  role: PerfilSistema
 }
 
 const PERFIS: Array<{
@@ -82,10 +93,22 @@ function perfilLabel(role: string) {
 }
 
 function roleBadgeClass(role: string) {
-  if (role === 'dono') return 'bg-green/10 text-green border-green/20'
-  if (role === 'admin_empresa') return 'bg-blue/10 text-blue-700 border-blue/20'
-  if (role === 'gerente') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (role === 'controller') return 'bg-amber/10 text-amber-700 border-amber/20'
+  if (role === 'dono') {
+    return 'bg-green/10 text-green border-green/20'
+  }
+
+  if (role === 'admin_empresa') {
+    return 'bg-blue-50 text-blue-700 border-blue-200'
+  }
+
+  if (role === 'gerente') {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  }
+
+  if (role === 'controller') {
+    return 'bg-amber-50 text-amber-700 border-amber-200'
+  }
+
   return 'bg-slate-100 text-slate-700 border-slate-200'
 }
 
@@ -99,6 +122,16 @@ function formatarData(value: string | null) {
   })
 }
 
+function conviteInicial(): ConviteForm {
+  return {
+    nome: '',
+    email: '',
+    cargo: '',
+    telefone: '',
+    role: 'escritorio',
+  }
+}
+
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<UsuarioPainel[]>([])
   const [loading, setLoading] = useState(true)
@@ -106,6 +139,10 @@ export default function UsuariosPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState<UsuarioForm | null>(null)
+
+  const [modalConviteAberto, setModalConviteAberto] = useState(false)
+  const [convidando, setConvidando] = useState(false)
+  const [convite, setConvite] = useState<ConviteForm>(conviteInicial())
 
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -158,6 +195,49 @@ export default function UsuariosPage() {
     })
   }
 
+  function limparConvite() {
+    setConvite(conviteInicial())
+  }
+
+  async function enviarConvite() {
+    if (!convite.nome.trim()) {
+      alert('Informe o nome do usuário.')
+      return
+    }
+
+    if (!convite.email.trim()) {
+      alert('Informe o e-mail do usuário.')
+      return
+    }
+
+    setConvidando(true)
+
+    try {
+      await convidarUsuario({
+        nome: convite.nome,
+        email: convite.email,
+        cargo: convite.cargo || null,
+        telefone: convite.telefone || null,
+        role: convite.role,
+      })
+
+      alert('Convite enviado com sucesso.')
+
+      setModalConviteAberto(false)
+      limparConvite()
+      await carregarUsuarios()
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível enviar o convite.'
+
+      alert('Erro ao convidar usuário: ' + mensagem)
+    } finally {
+      setConvidando(false)
+    }
+  }
+
   async function salvarUsuario() {
     if (!editando) return
 
@@ -200,14 +280,27 @@ export default function UsuariosPage() {
         title="Usuários e Perfis"
         description="Controle de acesso dos usuários do painel FarmSafe"
         action={
-          <button
-            onClick={carregarUsuarios}
-            disabled={loading}
-            className="btn-ghost"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalConviteAberto(true)}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              Convidar usuário
+            </button>
+
+            <button
+              onClick={carregarUsuarios}
+              disabled={loading}
+              className="btn-ghost"
+            >
+              <RefreshCw
+                size={14}
+                className={loading ? 'animate-spin' : ''}
+              />
+              Atualizar
+            </button>
+          </div>
         }
       />
 
@@ -217,6 +310,7 @@ export default function UsuariosPage() {
             <span className="text-xs text-ink-muted">Total</span>
             <Users size={16} className="text-green" />
           </div>
+
           <p className="text-2xl font-bold mt-2">{usuarios.length}</p>
         </div>
 
@@ -225,6 +319,7 @@ export default function UsuariosPage() {
             <span className="text-xs text-ink-muted">Ativos</span>
             <ShieldCheck size={16} className="text-green" />
           </div>
+
           <p className="text-2xl font-bold mt-2">
             {usuarios.filter((u) => u.ativo).length}
           </p>
@@ -233,8 +328,9 @@ export default function UsuariosPage() {
         <div className="rounded-xl border border-border bg-white p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-muted">Inativos</span>
-            <UserX size={16} className="text-red" />
+            <UserX size={16} className="text-red-600" />
           </div>
+
           <p className="text-2xl font-bold mt-2">
             {usuarios.filter((u) => !u.ativo).length}
           </p>
@@ -243,8 +339,9 @@ export default function UsuariosPage() {
         <div className="rounded-xl border border-border bg-white p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-muted">Gestores</span>
-            <UserCog size={16} className="text-blue" />
+            <UserCog size={16} className="text-blue-700" />
           </div>
+
           <p className="text-2xl font-bold mt-2">
             {
               usuarios.filter((u) =>
@@ -264,20 +361,20 @@ export default function UsuariosPage() {
             className="w-full md:max-w-md h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
           />
 
-          <div className="rounded-xl bg-amber/10 border border-amber/20 px-3 py-2">
-            <p className="text-xs text-amber-800 font-medium">
-              Criação de novos usuários será feita na próxima etapa com convite seguro.
+          <div className="rounded-xl bg-green/10 border border-green/20 px-3 py-2">
+            <p className="text-xs text-green font-medium">
+              Convites são enviados por e-mail com segurança.
             </p>
           </div>
         </div>
 
         {erro ? (
-          <div className="rounded-xl border border-red/20 bg-red/10 p-4 text-sm text-red font-medium">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 font-medium">
             {erro}
           </div>
         ) : loading ? (
           <div className="py-16 flex justify-center">
-            <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-green/20 border-t-green rounded-full animate-spin" />
           </div>
         ) : usuariosFiltrados.length === 0 ? (
           <div className="py-16 text-center">
@@ -351,7 +448,7 @@ export default function UsuariosPage() {
                           Ativo
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-red/10 text-red px-2.5 py-1 text-xs font-bold">
+                        <span className="inline-flex rounded-full bg-red-50 text-red-700 px-2.5 py-1 text-xs font-bold">
                           Inativo
                         </span>
                       )}
@@ -378,6 +475,150 @@ export default function UsuariosPage() {
         )}
       </SectionCard>
 
+      {modalConviteAberto && (
+        <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white border border-border shadow-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-ink-primary">
+                  Convidar usuário
+                </h2>
+
+                <p className="text-sm text-ink-muted mt-1">
+                  O usuário receberá um convite por e-mail para acessar o painel FarmSafe.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setModalConviteAberto(false)
+                  limparConvite()
+                }}
+                className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-surface"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase text-ink-muted">
+                  Nome
+                </label>
+
+                <input
+                  value={convite.nome}
+                  onChange={(event) =>
+                    setConvite({ ...convite, nome: event.target.value })
+                  }
+                  placeholder="Nome do usuário"
+                  className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-ink-muted">
+                  E-mail
+                </label>
+
+                <input
+                  value={convite.email}
+                  onChange={(event) =>
+                    setConvite({ ...convite, email: event.target.value })
+                  }
+                  placeholder="usuario@fazenda.com"
+                  className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-ink-muted">
+                  Cargo
+                </label>
+
+                <input
+                  value={convite.cargo}
+                  onChange={(event) =>
+                    setConvite({ ...convite, cargo: event.target.value })
+                  }
+                  placeholder="Ex.: gerente, controller, escritório..."
+                  className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-ink-muted">
+                  Telefone
+                </label>
+
+                <input
+                  value={convite.telefone}
+                  onChange={(event) =>
+                    setConvite({ ...convite, telefone: event.target.value })
+                  }
+                  placeholder="(00) 00000-0000"
+                  className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-ink-muted">
+                  Perfil
+                </label>
+
+                <select
+                  value={convite.role}
+                  onChange={(event) =>
+                    setConvite({
+                      ...convite,
+                      role: event.target.value as PerfilSistema,
+                    })
+                  }
+                  className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
+                >
+                  {PERFIS.map((perfil) => (
+                    <option key={perfil.value} value={perfil.value}>
+                      {perfil.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-xl bg-green/10 border border-green/20 p-4">
+                <p className="text-xs font-bold text-green">
+                  Convite seguro
+                </p>
+
+                <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                  A senha será definida pelo próprio usuário através do e-mail oficial do FarmSafe.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-border bg-surface/50 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setModalConviteAberto(false)
+                  limparConvite()
+                }}
+                className="px-4 py-2 rounded-xl border border-border bg-white text-sm font-semibold text-ink-secondary hover:bg-surface"
+              >
+                Cancelar
+              </button>
+
+              <button
+                onClick={enviarConvite}
+                disabled={convidando}
+                className="px-4 py-2 rounded-xl bg-green text-white text-sm font-semibold hover:bg-green/90 disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                <Send size={15} />
+                {convidando ? 'Enviando...' : 'Enviar convite'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editando && (
         <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white border border-border shadow-xl overflow-hidden">
@@ -386,6 +627,7 @@ export default function UsuariosPage() {
                 <h2 className="text-lg font-bold text-ink-primary">
                   Editar usuário
                 </h2>
+
                 <p className="text-sm text-ink-muted mt-1">
                   Atualize dados administrativos, perfil e status.
                 </p>
@@ -404,6 +646,7 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   Nome
                 </label>
+
                 <input
                   value={editando.nome}
                   onChange={(event) =>
@@ -417,6 +660,7 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   E-mail
                 </label>
+
                 <input
                   value={editando.email}
                   onChange={(event) =>
@@ -430,6 +674,7 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   Cargo
                 </label>
+
                 <input
                   value={editando.cargo}
                   onChange={(event) =>
@@ -444,10 +689,14 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   Telefone
                 </label>
+
                 <input
                   value={editando.telefone}
                   onChange={(event) =>
-                    setEditando({ ...editando, telefone: event.target.value })
+                    setEditando({
+                      ...editando,
+                      telefone: event.target.value,
+                    })
                   }
                   placeholder="(00) 00000-0000"
                   className="mt-2 w-full h-10 rounded-xl border border-border px-3 text-sm outline-none focus:border-green/40 focus:ring-4 focus:ring-green/10"
@@ -458,6 +707,7 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   Perfil
                 </label>
+
                 <select
                   value={editando.role}
                   onChange={(event) =>
@@ -480,6 +730,7 @@ export default function UsuariosPage() {
                 <label className="text-xs font-bold uppercase text-ink-muted">
                   Status
                 </label>
+
                 <select
                   value={editando.ativo ? 'ativo' : 'inativo'}
                   onChange={(event) =>
