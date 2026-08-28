@@ -7,6 +7,8 @@ import {
   X,
   Save,
   Download,
+  FileText,
+  Printer,
   Droplets,
   Beef,
   CalendarDays,
@@ -203,10 +205,6 @@ export default function AbastecimentosPage() {
     return new Set(filtered.map((item) => item.cocho_id)).size
   }, [filtered])
 
-  const sincronizados = useMemo(() => {
-    return filtered.filter((item) => item.sincronizado_em).length
-  }, [filtered])
-
   const hoje = useMemo(() => {
     const inicio = new Date()
     inicio.setHours(0, 0, 0, 0)
@@ -264,9 +262,7 @@ export default function AbastecimentosPage() {
     await load()
   }
 
-  async function exportarExcel() {
-    setExportando(true)
-
+  async function carregarRegistrosExportacao() {
     let q = supabase
       .from('abastecimentos')
       .select(
@@ -287,9 +283,7 @@ export default function AbastecimentosPage() {
 
     if (error) {
       console.error(error)
-      alert('Erro ao exportar dados.')
-      setExportando(false)
-      return
+      throw new Error('Erro ao exportar dados.')
     }
 
     let registros = (data as Abastecimento[]) ?? []
@@ -307,14 +301,43 @@ export default function AbastecimentosPage() {
       )
     }
 
-    if (registros.length === 0) {
-      alert('Nenhum dado encontrado para exportar.')
-      setExportando(false)
-      return
-    }
+    return registros
+  }
 
-    baixarExcel(registros)
-    setExportando(false)
+  async function executarExportacao(
+    callback: (registros: Abastecimento[]) => void
+  ) {
+    setExportando(true)
+
+    try {
+      const registros = await carregarRegistrosExportacao()
+
+      if (registros.length === 0) {
+        alert('Nenhum dado encontrado para exportar.')
+        return
+      }
+
+      callback(registros)
+    } catch (error) {
+      const mensagem =
+        error instanceof Error ? error.message : 'Erro ao exportar dados.'
+
+      alert(mensagem)
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  async function exportarExcel() {
+    await executarExportacao(baixarExcel)
+  }
+
+  async function exportarCsv() {
+    await executarExportacao(baixarCsv)
+  }
+
+  async function imprimir() {
+    await executarExportacao(imprimirRelatorio)
   }
 
   return (
@@ -331,6 +354,24 @@ export default function AbastecimentosPage() {
             >
               <Download size={14} />
               {exportando ? 'Exportando...' : 'Exportar Excel'}
+            </button>
+
+            <button
+              onClick={exportarCsv}
+              disabled={exportando || total === 0}
+              className="btn-ghost border border-border bg-white"
+            >
+              <FileText size={14} />
+              CSV
+            </button>
+
+            <button
+              onClick={imprimir}
+              disabled={exportando || total === 0}
+              className="btn-ghost border border-border bg-white"
+            >
+              <Printer size={14} />
+              Imprimir
             </button>
 
             <button onClick={load} disabled={loading} className="btn-ghost border border-border bg-white">
@@ -672,4 +713,137 @@ export default function AbastecimentosPage() {
       )}
     </div>
   )
+}
+
+function escaparCsv(value: unknown) {
+  const texto = String(value ?? '')
+
+  if (/[",\n;]/.test(texto)) {
+    return `"${texto.replace(/"/g, '""')}"`
+  }
+
+  return texto
+}
+
+function escaparHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function baixarCsv(registros: Abastecimento[]) {
+  const dados = montarLinhasExcel(registros)
+  const headers = Object.keys(dados[0] ?? {})
+
+  const csv = [
+    headers.map(escaparCsv).join(';'),
+    ...dados.map((linha) =>
+      headers
+        .map((header) => escaparCsv((linha as Record<string, unknown>)[header]))
+        .join(';')
+    ),
+  ].join('\n')
+
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: 'text/csv;charset=utf-8',
+  })
+
+  saveAs(
+    blob,
+    `farmsafe-abastecimentos-${new Date().toISOString().slice(0, 10)}.csv`
+  )
+}
+
+function imprimirRelatorio(registros: Abastecimento[]) {
+  const win = window.open('', '_blank', 'width=1100,height=800')
+  if (!win) return
+
+  const totalKg = registros.reduce(
+    (acc, item) => acc + (item.quantidade_kg ?? 0),
+    0
+  )
+
+  const rowsHtml = registros
+    .map(
+      (item) => `
+        <tr>
+          <td>${escaparHtml(item.cocho?.nome)}</td>
+          <td>${escaparHtml(item.cocho?.codigo_qr)}</td>
+          <td>${escaparHtml(item.lote?.nome)}</td>
+          <td>${escaparHtml(item.tipo_abastecimento)}</td>
+          <td>${escaparHtml(item.quantidade_kg ?? 0)}</td>
+          <td>${escaparHtml(item.dispositivo?.nome)}</td>
+          <td>${escaparHtml(item.dispositivo?.tratador_nome)}</td>
+          <td>${escaparHtml(
+            item.registrado_em
+              ? new Date(item.registrado_em).toLocaleString('pt-BR')
+              : ''
+          )}</td>
+          <td>${escaparHtml(item.sincronizado_em ? 'Sincronizado' : 'Pendente')}</td>
+        </tr>
+      `
+    )
+    .join('')
+
+  win.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>Relatorio de abastecimentos</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { margin: 0; padding: 28px; font-family: Arial, sans-serif; color: #17231d; }
+          header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #17231d; padding-bottom: 16px; margin-bottom: 18px; }
+          h1 { margin: 0; font-size: 22px; }
+          p { margin: 4px 0 0; color: #5a665e; font-size: 12px; }
+          .stats { display: flex; gap: 12px; margin-bottom: 18px; }
+          .stat { border: 1px solid #d7ddd8; padding: 10px 12px; min-width: 150px; }
+          .stat strong { display: block; font-size: 18px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #d7ddd8; padding: 7px; text-align: left; vertical-align: top; }
+          th { background: #eef3ef; font-size: 10px; text-transform: uppercase; }
+          @media print { body { padding: 12mm; } }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div>
+            <h1>FarmSafe - Relatorio de abastecimentos</h1>
+            <p>Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+          </div>
+          <div>
+            <p>Registros: ${registros.length}</p>
+            <p>Total: ${totalKg.toLocaleString('pt-BR')} kg</p>
+          </div>
+        </header>
+        <div class="stats">
+          <div class="stat"><strong>${registros.length}</strong><span>registros</span></div>
+          <div class="stat"><strong>${totalKg.toLocaleString('pt-BR')} kg</strong><span>total abastecido</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Cocho</th>
+              <th>QR</th>
+              <th>Lote</th>
+              <th>Tipo</th>
+              <th>Kg</th>
+              <th>Dispositivo</th>
+              <th>Tratador</th>
+              <th>Registrado em</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>
+  `)
+
+  win.document.close()
+  win.focus()
+  window.setTimeout(() => win.print(), 250)
 }

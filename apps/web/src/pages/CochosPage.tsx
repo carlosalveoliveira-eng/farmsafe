@@ -10,6 +10,7 @@ import {
   Package,
   AlertCircle,
   CheckCircle2,
+  Printer,
 } from 'lucide-react'
 
 import { supabase, type Cocho, type Fazenda, type Lote, type Retiro } from '../services/supabase'
@@ -311,6 +312,15 @@ function atualizarCapacidadeKg(valor: string) {
     await load()
   }
 
+  function imprimirQRCodesVisiveis() {
+    if (filtered.length === 0) {
+      alert('Nenhum QR Code visivel para imprimir.')
+      return
+    }
+
+    window.print()
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -321,6 +331,15 @@ function atualizarCapacidadeKg(valor: string) {
             <button onClick={abrirNovo} className="btn-primary">
               <Plus size={14} />
               Novo Cocho
+            </button>
+
+            <button
+              onClick={imprimirQRCodesVisiveis}
+              disabled={filtered.length === 0}
+              className="btn-ghost border border-border bg-white"
+            >
+              <Printer size={14} />
+              Imprimir QRs
             </button>
 
             <button
@@ -435,7 +454,7 @@ function atualizarCapacidadeKg(valor: string) {
         />
       ) : (
         <SectionCard title="Lista de Cochos">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="qr-print-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((cocho) => (
               <div
                 key={cocho.id}

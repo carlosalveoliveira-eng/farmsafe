@@ -415,6 +415,9 @@ export interface Dispositivo {
   tratador_nome: string | null
   ativo: boolean
   ultimo_sync: string | null
+  revogado_em?: string | null
+  revogado_por?: string | null
+  revogacao_motivo?: string | null
   device_secret: string | null
   created_at: string
   updated_at?: string | null

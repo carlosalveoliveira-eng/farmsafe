@@ -21,6 +21,10 @@ import {
   type Dispositivo,
   type Fazenda,
 } from '../services/supabase'
+import {
+  reativarDispositivo,
+  revogarDispositivo,
+} from '../services/dispositivos'
 
 import PageHeader from '../components/ui/PageHeader'
 import StatCard from '../components/ui/StatCard'
@@ -232,28 +236,38 @@ export default function DispositivosPage() {
   }
 
   async function alternarAtivo(dispositivo: Dispositivo) {
-    const confirmar = confirm(
-      dispositivo.ativo
-        ? `Deseja inativar o dispositivo "${dispositivo.nome}"?`
-        : `Deseja ativar o dispositivo "${dispositivo.nome}"?`
-    )
+    try {
+      if (dispositivo.ativo) {
+        const motivo = prompt(
+          `Informe o motivo para revogar "${dispositivo.nome}".`
+        )
 
-    if (!confirmar) return
+        if (motivo === null) return
 
-    const { error } = await supabase
-      .from('dispositivos')
-      .update({
-        ativo: !dispositivo.ativo,
-      })
-      .eq('id', dispositivo.id)
+        await revogarDispositivo({
+          dispositivoId: dispositivo.id,
+          motivo,
+        })
+      } else {
+        const confirmar = confirm(
+          `Deseja reativar o dispositivo "${dispositivo.nome}"?`
+        )
 
-    if (error) {
+        if (!confirmar) return
+
+        await reativarDispositivo(dispositivo.id)
+      }
+
+      await load()
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao atualizar status do dispositivo.'
+
       console.error(error)
-      alert(`Erro ao atualizar status: ${error.message}`)
-      return
+      alert(mensagem)
     }
-
-    await load()
   }
 
   const ativos = dispositivos.filter((d) => d.ativo)
@@ -429,6 +443,23 @@ export default function DispositivosPage() {
                         {fmtRelativo(dispositivo.ultimo_sync)}
                       </span>
                     </div>
+
+                    {dispositivo.revogado_em && (
+                      <div>
+                        <span className="text-xs text-ink-muted">
+                          Revogado em
+                        </span>
+
+                        <p className="mt-1 text-xs text-err">
+                          {new Date(dispositivo.revogado_em).toLocaleString(
+                            'pt-BR'
+                          )}
+                          {dispositivo.revogacao_motivo
+                            ? ` - ${dispositivo.revogacao_motivo}`
+                            : ''}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-surface rounded-lg p-3 mb-4">
@@ -477,8 +508,8 @@ export default function DispositivosPage() {
                     >
                       <Power size={13} />
                       {dispositivo.ativo
-                        ? 'Inativar'
-                        : 'Ativar'}
+                        ? 'Revogar'
+                        : 'Reativar'}
                     </button>
                   </div>
                 </div>

@@ -16,11 +16,12 @@ import MapaOperacionalPage from './pages/MapaOperacionalPage'
 import LogsPage from './pages/LogsPage'
 import InsumosPage from './pages/InsumosPage'
 import UsuariosPage from './pages/UsuariosPage'
+import SetupEmpresaPage from './pages/SetupEmpresaPage'
 import { getEmpresaUsuario } from './services/auth'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<
-    'carregando' | 'autorizado' | 'negado'
+    'carregando' | 'autorizado' | 'setup' | 'negado'
   >('carregando')
 
   useEffect(() => {
@@ -43,10 +44,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Acesso negado:', error)
 
-        await supabase.auth.signOut()
-
         if (mounted) {
-          setStatus('negado')
+          setStatus('setup')
         }
       }
     }
@@ -79,6 +78,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
+  if (status === 'setup') {
+    return <Navigate to="/setup" replace />
+  }
+
   return children
 }
 
@@ -87,6 +90,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupEmpresaPage />} />
 
         <Route
           element={

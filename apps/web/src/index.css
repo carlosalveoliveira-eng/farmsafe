@@ -112,3 +112,38 @@
     @apply w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-green/50 focus:ring-1 focus:ring-green/20 transition-colors;
   }
 }
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .qr-print-grid,
+  .qr-print-grid * {
+    visibility: visible;
+  }
+
+  .qr-print-grid {
+    position: absolute;
+    inset: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10mm !important;
+    padding: 12mm !important;
+    background: #fff;
+  }
+
+  .qr-print-card {
+    break-inside: avoid;
+    border: 1px solid #111 !important;
+    box-shadow: none !important;
+  }
+
+  .qr-print-card button {
+    display: none !important;
+  }
+}
