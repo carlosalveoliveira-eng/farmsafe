@@ -119,6 +119,15 @@ export function getTipoArea(feature: any): TipoAreaMapa {
 }
 
 export function getCorArea(feature: any) {
+  const corInformada = feature?.properties?.cor
+
+  if (
+    typeof corInformada === 'string' &&
+    /^#[0-9a-f]{6}$/i.test(corInformada)
+  ) {
+    return corInformada
+  }
+
   const tipo = getTipoArea(feature)
 
   return MAP_COLORS[tipo] ?? MAP_COLORS.outro

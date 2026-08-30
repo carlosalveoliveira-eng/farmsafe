@@ -8,14 +8,14 @@ export default function SectionCard({
   children,
 }: Props) {
   return (
-    <div className="fs-card p-5">
+    <section className="fs-card p-4">
       {title && (
-        <h2 className="text-sm font-semibold text-ink-primary mb-4">
+        <h2 className="mb-3 text-sm font-semibold text-ink-primary">
           {title}
         </h2>
       )}
 
       {children}
-    </div>
+    </section>
   )
 }

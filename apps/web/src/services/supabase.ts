@@ -49,6 +49,7 @@ export interface Lote {
   empresa_id?: string | null
   fazenda_id: string
   retiro_id: string | null
+  map_area_id?: string | null
   nome: string
   descricao: string | null
 
@@ -70,10 +71,13 @@ export interface Cocho {
   fazenda_id: string
   retiro_id: string | null
   lote_id: string | null
+  map_area_id?: string | null
   nome: string
   codigo_qr: string
   tipo_sal: string | null
   capacidade_kg: number | null
+  latitude?: number | null
+  longitude?: number | null
   ativo: boolean
   created_at?: string | null
   updated_at: string

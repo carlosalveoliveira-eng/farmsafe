@@ -18,6 +18,7 @@ import InsumosPage from './pages/InsumosPage'
 import UsuariosPage from './pages/UsuariosPage'
 import SetupEmpresaPage from './pages/SetupEmpresaPage'
 import { getEmpresaUsuario } from './services/auth'
+import AppErrorBoundary from './components/AppErrorBoundary'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<
@@ -87,7 +88,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <AppErrorBoundary>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupEmpresaPage />} />
@@ -113,6 +120,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
+      </AppErrorBoundary>
     </BrowserRouter>
   )
 }

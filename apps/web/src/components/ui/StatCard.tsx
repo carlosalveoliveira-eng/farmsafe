@@ -14,22 +14,22 @@ export default function StatCard({
   color = 'bg-green/10 text-green',
 }: Props) {
   return (
-    <div className="fs-card p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-ink-muted">
+    <div className="fs-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-medium text-ink-muted">
             {title}
           </p>
 
-          <h3 className="text-3xl font-semibold text-ink-primary mt-2">
+          <h3 className="mt-1 truncate text-2xl font-semibold text-ink-primary">
             {value}
           </h3>
         </div>
 
         <div
-          className={`w-11 h-11 rounded-xl flex items-center justify-center ${color}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}
         >
-          <Icon size={20} />
+          <Icon size={18} />
         </div>
       </div>
     </div>

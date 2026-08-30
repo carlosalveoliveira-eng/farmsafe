@@ -81,7 +81,7 @@
   }
 
   .fs-card {
-    @apply bg-white border border-border rounded-xl shadow-sm;
+    @apply bg-white border border-border rounded-lg shadow-sm;
   }
 
   .btn-primary {

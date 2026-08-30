@@ -30,6 +30,7 @@ import StatCard from '../components/ui/StatCard'
 import SectionCard from '../components/ui/SectionCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import EmptyState from '../components/ui/EmptyState'
+import FazendaMapCadastro from '../components/map/FazendaMapCadastro'
 
 function gerarCodigoFazenda(total: number) {
   return `FAZ-${String(total + 1).padStart(4, '0')}`
@@ -995,6 +996,8 @@ export default function FazendasPage() {
                             </p>
                           </div>
                         </div>
+
+                        <FazendaMapCadastro fazenda={fazenda} />
 
                         {fazenda.retiros.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-border bg-white p-6 text-center">

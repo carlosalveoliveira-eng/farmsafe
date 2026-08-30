@@ -1,46 +1,84 @@
-import { useEffect, useMemo, useState, type ElementType } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
   GeoJSON,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
   useMap,
+  useMapEvents,
 } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-import { RefreshCw, MapPin, Zap, Clock, Navigation, AlertTriangle } from 'lucide-react'
+import L, { type LeafletEvent } from 'leaflet'
+import {
+  AlertTriangle,
+  Beef,
+  Box,
+  Droplets,
+  Edit3,
+  Eye,
+  EyeOff,
+  Layers,
+  MapPin,
+  RefreshCw,
+  Route,
+  Satellite,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react'
 
 import {
   supabase,
   type Abastecimento,
   type Fazenda,
+  type Lote,
 } from '../services/supabase'
-import PageHeader from '../components/ui/PageHeader'
-import SectionCard from '../components/ui/SectionCard'
 import StatusBadge from '../components/ui/StatusBadge'
-import MapUploader from '../components/map/MapUploader'
-import type { FarmMap, GeoJsonFeatureCollection } from '../types/map'
+import type { FarmMap, GeoJsonFeatureCollection, MapArea } from '../types/map'
 import {
   getActiveFarmMap,
   loadFarmMapGeoJson,
 } from '../services/map/MapService'
-
-import MapLegend from '../features/mapa/MapLegend'
+import { listMapAreas } from '../services/map/MapAreaService'
+import {
+  clearCochoMapPosition,
+  createAbastecimentoFromMap,
+  listOperationalCochos,
+  listOperationalLotes,
+  moveLoteToArea,
+  updateCochoQuickInfo,
+  updateCochoMapPosition,
+  type CochoMapa,
+} from '../services/map/OperationalMapService'
+import {
+  calcularCentroFeature,
+  formatarHectares,
+} from '../features/mapa/mapGeometry'
 import MapPastoLabel from '../features/mapa/MapPastoLabel'
-import { getAreaStyle } from '../features/mapa/mapTheme'
+import { findAreaContainingPoint } from '../features/mapa/mapSpatial'
+import { getAreaStyle, getCorArea } from '../features/mapa/mapTheme'
 
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
+type StatusFiltro = 'todos' | 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+type PainelAtivo = 'cochos' | 'lotes' | 'rota'
+type BaseMapa = 'satelite' | 'osm'
+
+type StatusCocho = {
+  id: string
+  status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+}
 
 type PontoMapa = Abastecimento & {
   lat: number
   lng: number
 }
 
-type StatusCocho = {
-  id: string
-  status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
+const EMPTY_GEOJSON: GeoJsonFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
 }
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -48,112 +86,115 @@ delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function criarMarcadorPorStatus(
-  tipo: string,
-  numero: number,
-  status: 'ok' | 'atencao' | 'atrasado' | 'sem_registro',
-  foraDaArea = false
-) {
-  let cor =
-    status === 'atrasado'
-      ? '#ef4444'
-      : status === 'atencao' || status === 'sem_registro'
-      ? '#f59e0b'
-      : tipo === 'racao'
-      ? '#2563eb'
-      : '#22c55e'
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+}
 
-  if (foraDaArea) {
-    cor = '#7f1d1d'
-  }
+function buildPinIcon(params: {
+  label: string
+  color: string
+  shape?: 'round' | 'square'
+}) {
+  const radius = params.shape === 'square' ? '10px' : '999px'
 
   return L.divIcon({
     className: '',
     html: `
       <div style="
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        background: ${cor};
-        border: 3px solid #f3f4ec;
-        box-shadow: 0 0 0 6px rgba(0,0,0,0.25);
-        color: white;
-        font-weight: 700;
-        font-size: 12px;
+        width: 34px;
+        height: 34px;
+        border-radius: ${radius};
+        background: ${params.color};
+        border: 3px solid #fff;
+        box-shadow: 0 10px 24px rgba(15,23,42,0.28);
+        color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: Arial, sans-serif;
-      ">
-        ${numero}
-      </div>
+        font: 800 12px Arial, sans-serif;
+      ">${escapeHtml(params.label)}</div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
   })
 }
 
-function AtualizarCentro({
+function FitOperationalBounds({
   centro,
-  zoom,
   geojson,
 }: {
   centro: [number, number]
-  zoom: number
-  geojson?: GeoJsonFeatureCollection | null
+  geojson: GeoJsonFeatureCollection
 }) {
   const map = useMap()
 
   useEffect(() => {
-    const zoomMaximo = 16
+    map.setMinZoom(10)
+    map.setMaxZoom(17)
 
-    map.setMaxZoom(zoomMaximo)
-    map.options.maxBoundsViscosity = 1
+    const layer = geojson.features.length ? L.geoJSON(geojson as any) : null
+    const bounds = layer?.getBounds()
 
-    if (geojson?.features?.length) {
-      const layer = L.geoJSON(geojson as any)
-      const bounds = layer.getBounds()
-
-      if (bounds.isValid()) {
-        const padding: [number, number] = [34, 34]
-        const paddingPoint = L.point(34, 34)
-
-        const zoomParaEnquadrar = map.getBoundsZoom(
-          bounds,
-          false,
-          paddingPoint
-        )
-
-        const zoomMinimo = Math.max(
-          10,
-          Math.min(zoomParaEnquadrar, 17)
-        )
-
-        map.setMinZoom(zoomMinimo)
-        map.setMaxZoom(zoomMaximo)
-
-        map.fitBounds(bounds, {
-          padding,
-          maxZoom: Math.min(16, zoomMaximo),
-        })
-
-        map.setMaxBounds(bounds.pad(0.04))
-
-        return
-      }
+    if (bounds?.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [56, 56],
+        maxZoom: 15,
+      })
+      return
     }
 
-    map.setMinZoom(12)
-    map.setMaxZoom(zoomMaximo)
-    map.setView(centro, zoom)
-  }, [centro, zoom, geojson, map])
+    map.setView(centro, 14)
+  }, [centro, geojson, map])
+
+  return null
+}
+
+function ZoomControls() {
+  const map = useMap()
+
+  return (
+    <div className="absolute left-4 top-20 z-[1200] flex flex-col overflow-hidden rounded-lg border border-white/20 bg-white/95 shadow-xl">
+      <button
+        type="button"
+        onClick={() => map.zoomIn()}
+        className="h-10 w-10 text-lg font-bold text-ink-primary hover:bg-green/10"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        onClick={() => map.zoomOut()}
+        className="h-10 w-10 border-t border-border text-lg font-bold text-ink-primary hover:bg-green/10"
+      >
+        -
+      </button>
+    </div>
+  )
+}
+
+function ClickToPlaceItem({
+  enabled,
+  onPlace,
+}: {
+  enabled: boolean
+  onPlace: (point: [number, number]) => void
+}) {
+  useMapEvents({
+    click(event) {
+      if (!enabled) return
+      onPlace([event.latlng.lat, event.latlng.lng])
+    },
+  })
 
   return null
 }
@@ -189,644 +230,1139 @@ function fmtDateTime(iso: string) {
   })
 }
 
-type MetricTileProps = {
-  title: string
-  value: number | string
-  icon: ElementType
-  color: string
+function statusBadge(status: StatusCocho['status_operacional']) {
+  if (status === 'ok') return 'ok'
+  if (status === 'atencao' || status === 'sem_registro') return 'warn'
+  return 'err'
 }
 
-function MetricTile({ title, value, icon: Icon, color }: MetricTileProps) {
+function statusColor(status: StatusCocho['status_operacional']) {
+  if (status === 'ok') return '#22c55e'
+  if (status === 'atrasado') return '#ef4444'
+  return '#f59e0b'
+}
+
+function areaFeature(area: MapArea) {
+  return {
+    ...(area.geojson ?? {}),
+    type: 'Feature',
+    properties: {
+      ...(area.geojson?.properties ?? {}),
+      area_id: area.id,
+      nome: area.nome,
+      tipo: area.tipo,
+      cor: area.cor,
+    },
+  }
+}
+
+export default function MapaOperacionalPage() {
+  const [periodo, setPeriodo] = useState<Periodo>('7d')
+  const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
+  const [painelAtivo, setPainelAtivo] = useState<PainelAtivo>('cochos')
+  const [painelAberto, setPainelAberto] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [fazendas, setFazendas] = useState<Fazenda[]>([])
+  const [fazendaSelecionadaId, setFazendaSelecionadaId] = useState('')
+  const [fazendaAtual, setFazendaAtual] = useState<Fazenda | null>(null)
+  const [mapaFazenda, setMapaFazenda] = useState<FarmMap | null>(null)
+  const [geojsonFazenda, setGeojsonFazenda] =
+    useState<GeoJsonFeatureCollection>(EMPTY_GEOJSON)
+  const [areas, setAreas] = useState<MapArea[]>([])
+  const [cochos, setCochos] = useState<CochoMapa[]>([])
+  const [lotes, setLotes] = useState<Lote[]>([])
+  const [registros, setRegistros] = useState<Abastecimento[]>([])
+  const [statusCochos, setStatusCochos] = useState<StatusCocho[]>([])
+  const [cochoParaPosicionar, setCochoParaPosicionar] = useState<string | null>(
+    null
+  )
+  const [loteParaPosicionar, setLoteParaPosicionar] = useState<string | null>(
+    null
+  )
+  const [showAreas, setShowAreas] = useState(true)
+  const [showLabels, setShowLabels] = useState(false)
+  const [showCochos, setShowCochos] = useState(true)
+  const [showLotes, setShowLotes] = useState(true)
+  const [showRota, setShowRota] = useState(false)
+  const [baseMapa, setBaseMapa] = useState<BaseMapa>('satelite')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const fazendaCentro = useMemo<[number, number]>(() => {
+    if (fazendaAtual?.latitude && fazendaAtual?.longitude) {
+      return [Number(fazendaAtual.latitude), Number(fazendaAtual.longitude)]
+    }
+
+    return [-15.0725, -57.1811]
+  }, [fazendaAtual])
+
+  const areasGeojson = useMemo<GeoJsonFeatureCollection>(() => {
+    return {
+      type: 'FeatureCollection',
+      features: areas.map(areaFeature),
+    }
+  }, [areas])
+
+  const pontos = useMemo<PontoMapa[]>(() => {
+    return registros
+      .filter((registro) => registro.latitude && registro.longitude)
+      .map((registro) => ({
+        ...registro,
+        lat: Number(registro.latitude),
+        lng: Number(registro.longitude),
+      }))
+  }, [registros])
+
+  const rota = pontos.map((ponto) => [ponto.lat, ponto.lng] as [number, number])
+
+  const areasPorId = useMemo(() => {
+    return new Map(areas.map((area) => [area.id, area]))
+  }, [areas])
+
+  const lotesPorArea = useMemo(() => {
+    const map = new Map<string, Lote[]>()
+
+    lotes.forEach((lote) => {
+      if (!lote.map_area_id) return
+      const current = map.get(lote.map_area_id) ?? []
+      current.push(lote)
+      map.set(lote.map_area_id, current)
+    })
+
+    return map
+  }, [lotes])
+
+  function getStatusCocho(cochoId: string): StatusCocho['status_operacional'] {
+    return (
+      statusCochos.find((status) => status.id === cochoId)
+        ?.status_operacional ?? 'sem_registro'
+    )
+  }
+
+  function cancelarPosicionamento() {
+    setCochoParaPosicionar(null)
+    setLoteParaPosicionar(null)
+  }
+
+  async function load() {
+    setLoading(true)
+    setErrorMessage(null)
+
+    try {
+      const { data: fazendasData } = await supabase
+        .from('fazendas')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome')
+
+      const fazendasList = (fazendasData as Fazenda[]) ?? []
+      const selectedId = fazendaSelecionadaId || fazendasList[0]?.id || ''
+      const fazenda =
+        fazendasList.find((item) => item.id === selectedId) ?? null
+
+      setFazendas(fazendasList)
+      setFazendaAtual(fazenda)
+
+      if (!fazendaSelecionadaId && selectedId) {
+        setFazendaSelecionadaId(selectedId)
+      }
+
+      if (!fazenda?.empresa_id) {
+        setMapaFazenda(null)
+        setGeojsonFazenda(EMPTY_GEOJSON)
+        setAreas([])
+        setCochos([])
+        setLotes([])
+        setRegistros([])
+        return
+      }
+
+      const mapaAtivo = await getActiveFarmMap({
+        empresaId: fazenda.empresa_id,
+        fazendaId: fazenda.id,
+      })
+
+      setMapaFazenda(mapaAtivo)
+
+      if (!mapaAtivo) {
+        setGeojsonFazenda(EMPTY_GEOJSON)
+        setAreas([])
+        setCochos([])
+        setLotes([])
+        setRegistros([])
+        return
+      }
+
+      let abastecimentosQuery = supabase
+        .from('abastecimentos')
+        .select(
+          '*, cocho:cochos(nome,codigo_qr), lote:lotes(nome), dispositivo:dispositivos(nome,tratador_nome)'
+        )
+        .eq('fazenda_id', fazenda.id)
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .order('registrado_em', { ascending: true })
+
+      const inicio = getInicioPeriodo(periodo)
+
+      if (inicio) abastecimentosQuery = abastecimentosQuery.gte('registrado_em', inicio)
+
+      const [
+        geojson,
+        areasData,
+        cochosData,
+        lotesData,
+        { data: registrosData, error: registrosError },
+        { data: statusData },
+      ] = await Promise.all([
+        loadFarmMapGeoJson(mapaAtivo),
+        listMapAreas({
+          mapId: mapaAtivo.id,
+          empresaId: fazenda.empresa_id,
+          fazendaId: fazenda.id,
+        }),
+        listOperationalCochos(fazenda.id),
+        listOperationalLotes(fazenda.id),
+        abastecimentosQuery,
+        supabase
+          .from('vw_status_cochos')
+          .select('id,status_operacional')
+          .eq('ativo', true),
+      ])
+
+      if (registrosError) throw registrosError
+
+      setGeojsonFazenda(geojson)
+      setAreas(areasData)
+      setCochos(cochosData)
+      setLotes(lotesData)
+      setRegistros((registrosData as Abastecimento[]) ?? [])
+      setStatusCochos((statusData as StatusCocho[]) ?? [])
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Nao foi possivel carregar o mapa operacional.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [periodo, fazendaSelecionadaId])
+
+  useEffect(() => {
+    if (!cochoParaPosicionar && !loteParaPosicionar) return
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') cancelarPosicionamento()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [cochoParaPosicionar, loteParaPosicionar])
+
+  async function posicionarCocho(cochoId: string, point: [number, number]) {
+    const area = findAreaContainingPoint(point, areas)
+
+    setSavingId(cochoId)
+
+    try {
+      await updateCochoMapPosition({
+        cochoId,
+        latitude: point[0],
+        longitude: point[1],
+        area,
+      })
+
+      setCochos((atuais) =>
+        atuais.map((cocho) =>
+          cocho.id === cochoId
+            ? {
+                ...cocho,
+                latitude: point[0],
+                longitude: point[1],
+                map_area_id: area?.id ?? null,
+              }
+            : cocho
+        )
+      )
+      setCochoParaPosicionar(null)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Falha ao posicionar cocho.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function retirarPinCocho(cocho: CochoMapa) {
+    if (!window.confirm(`Retirar o pin do cocho "${cocho.nome}" do mapa?`)) {
+      return
+    }
+
+    setSavingId(cocho.id)
+
+    try {
+      await clearCochoMapPosition(cocho.id)
+
+      setCochos((atuais) =>
+        atuais.map((item) =>
+          item.id === cocho.id
+            ? { ...item, latitude: null, longitude: null, map_area_id: null }
+            : item
+        )
+      )
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Falha ao retirar pin.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function editarCochoRapido(cocho: CochoMapa) {
+    const nome = window.prompt('Nome do cocho', cocho.nome)
+
+    if (nome === null) return
+    if (!nome.trim()) {
+      alert('Informe o nome do cocho.')
+      return
+    }
+
+    const tipoSal = window.prompt(
+      'Tipo de sal/abastecimento',
+      cocho.tipo_sal ?? ''
+    )
+
+    if (tipoSal === null) return
+
+    const capacidadeTexto = window.prompt(
+      'Capacidade em kg',
+      cocho.capacidade_kg === null || cocho.capacidade_kg === undefined
+        ? ''
+        : String(cocho.capacidade_kg)
+    )
+
+    if (capacidadeTexto === null) return
+
+    const capacidadeKg =
+      capacidadeTexto.trim() === '' ? null : Number(capacidadeTexto)
+
+    if (
+      capacidadeKg !== null &&
+      (!Number.isFinite(capacidadeKg) || capacidadeKg < 0)
+    ) {
+      alert('Informe uma capacidade valida.')
+      return
+    }
+
+    setSavingId(cocho.id)
+
+    try {
+      await updateCochoQuickInfo({
+        cochoId: cocho.id,
+        nome,
+        tipoSal: tipoSal.trim() || null,
+        capacidadeKg,
+      })
+
+      setCochos((atuais) =>
+        atuais.map((item) =>
+          item.id === cocho.id
+            ? {
+                ...item,
+                nome: nome.trim(),
+                tipo_sal: tipoSal.trim() || null,
+                capacidade_kg: capacidadeKg,
+              }
+            : item
+        )
+      )
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Falha ao editar cocho.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function lancarAbastecimentoCocho(cocho: CochoMapa) {
+    const quantidadeTexto = window.prompt('Quantidade abastecida em kg', '')
+
+    if (quantidadeTexto === null) return
+
+    const quantidadeKg = Number(quantidadeTexto.replace(',', '.'))
+
+    if (!Number.isFinite(quantidadeKg) || quantidadeKg <= 0) {
+      alert('Informe uma quantidade valida.')
+      return
+    }
+
+    const tipoAbastecimento = window.prompt(
+      'Tipo de abastecimento',
+      cocho.tipo_sal ?? 'sal_mineral'
+    )
+
+    if (tipoAbastecimento === null) return
+
+    const observacao = window.prompt(
+      'Observacao opcional',
+      'Lancado pelo mapa operacional.'
+    )
+
+    if (observacao === null) return
+
+    setSavingId(cocho.id)
+
+    try {
+      await createAbastecimentoFromMap({
+        cocho,
+        quantidadeKg,
+        tipoAbastecimento: tipoAbastecimento.trim() || 'sal_mineral',
+        observacao: observacao.trim() || null,
+      })
+
+      await load()
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Falha ao lancar abastecimento.'
+      )
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function moverLote(lote: Lote, point: [number, number]) {
+    const destino = findAreaContainingPoint(point, areas, ['pasto', 'retiro'])
+
+    if (!destino) {
+      alert('Solte o lote dentro de um pasto ou retiro cadastrado no KMZ.')
+      setLoteParaPosicionar(null)
+      await load()
+      return
+    }
+
+    if (destino.id === lote.map_area_id) {
+      setLoteParaPosicionar(null)
+      return
+    }
+
+    let quantidade: number | null = lote.quantidade_animais ?? null
+
+    if ((lote.quantidade_animais ?? 0) > 1) {
+      const resposta = window.prompt(
+        `Mover quantas cabecas do lote "${lote.nome}"?`,
+        String(lote.quantidade_animais)
+      )
+
+      if (resposta === null) {
+        setLoteParaPosicionar(null)
+        await load()
+        return
+      }
+
+      quantidade = Number(resposta)
+
+      if (
+        !Number.isInteger(quantidade) ||
+        quantidade <= 0 ||
+        quantidade > (lote.quantidade_animais ?? 0)
+      ) {
+        alert('Informe uma quantidade inteira valida.')
+        setLoteParaPosicionar(null)
+        await load()
+        return
+      }
+    }
+
+    setSavingId(lote.id)
+
+    try {
+      await moveLoteToArea({
+        lote,
+        destino,
+        quantidade,
+        observacao: `Movido pelo mapa operacional para ${destino.nome}`,
+      })
+
+      setLoteParaPosicionar(null)
+      await load()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Falha ao mover lote.')
+      await load()
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const cochosVisiveis = useMemo(() => {
+    if (statusFiltro === 'todos') return cochos
+
+    return cochos.filter((cocho) => getStatusCocho(cocho.id) === statusFiltro)
+  }, [cochos, statusCochos, statusFiltro])
+
+  const cochosComPosicao = cochosVisiveis.filter(
+    (cocho) => cocho.latitude && cocho.longitude
+  )
+  const cochosSemPosicao = cochosVisiveis.filter(
+    (cocho) => !cocho.latitude || !cocho.longitude
+  )
+  const lotesSemPasto = lotes.filter((lote) => !lote.map_area_id)
+  const lotesComPasto = lotes.filter((lote) => lote.map_area_id)
+
+  if (!loading && !mapaFazenda) {
+    return (
+      <div className="relative flex h-full min-h-[620px] items-center justify-center bg-slate-950 p-6">
+        <div className="w-full max-w-xl rounded-xl border border-white/15 bg-white p-6 text-center shadow-2xl">
+          <Satellite size={36} className="mx-auto text-green" />
+          <h1 className="mt-4 text-xl font-bold text-ink-primary">
+            Mapa operacional indisponivel
+          </h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Cadastre o KMZ/KML na tela da fazenda para liberar operacao com
+            pastos, cochos, lotes e movimentacao de gado no mapa.
+          </p>
+          <Link to="/fazendas" className="btn-primary mt-5">
+            Ir para Fazendas
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-white p-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-ink-muted">{title}</span>
-        <Icon size={15} className={color} />
+    <div className="relative h-full min-h-[680px] overflow-hidden bg-slate-950">
+      <MapContainer
+        center={fazendaCentro}
+        zoom={14}
+        minZoom={10}
+        maxZoom={17}
+        zoomControl={false}
+        scrollWheelZoom
+        className="h-full w-full"
+      >
+        <FitOperationalBounds
+          centro={fazendaCentro}
+          geojson={areas.length > 0 ? areasGeojson : geojsonFazenda}
+        />
+
+        {baseMapa === 'satelite' ? (
+          <TileLayer
+            attribution="Tiles Esri"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={17}
+            maxNativeZoom={17}
+          />
+        ) : (
+          <TileLayer
+            attribution="OpenStreetMap"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={17}
+            maxNativeZoom={17}
+          />
+        )}
+
+        {showAreas &&
+          areas.length === 0 &&
+          geojsonFazenda.features.length > 0 && (
+            <GeoJSON
+              key={`kmz-fallback-${mapaFazenda?.id ?? 'mapa'}-${geojsonFazenda.features.length}`}
+              data={geojsonFazenda as any}
+              style={(feature) => ({
+                ...getAreaStyle(feature),
+                weight: 2,
+                opacity: 0.9,
+                fillOpacity: 0.12,
+              })}
+            />
+          )}
+
+        {showAreas &&
+          areas.map((area) => {
+            const feature = areaFeature(area)
+
+            return (
+              <GeoJSON
+                key={`${area.id}-${area.updated_at ?? ''}`}
+                data={feature as any}
+                style={() => ({
+                  ...getAreaStyle(feature),
+                  color: area.cor || getCorArea(feature),
+                  fillColor: area.cor || getCorArea(feature),
+                  weight: area.tipo === 'fazenda' ? 3 : 2,
+                  fillOpacity: area.tipo === 'fazenda' ? 0.06 : 0.16,
+                })}
+              />
+            )
+          })}
+
+        {showLabels &&
+          showAreas &&
+          areasGeojson.features.map((feature, index) => (
+            <MapPastoLabel key={`label-${index}`} feature={feature} index={index} />
+          ))}
+
+        {showRota && rota.length > 1 && (
+          <Polyline
+            positions={rota}
+            pathOptions={{ color: '#4ade80', weight: 3, opacity: 0.78 }}
+          />
+        )}
+
+        {showCochos &&
+          cochosComPosicao.map((cocho, index) => {
+            const status = getStatusCocho(cocho.id)
+
+            return (
+              <Marker
+                key={`${cocho.id}-${cocho.latitude}-${cocho.longitude}`}
+                position={[Number(cocho.latitude), Number(cocho.longitude)]}
+                icon={buildPinIcon({
+                  label: String(index + 1),
+                  color: statusColor(status),
+                  shape: 'round',
+                })}
+                draggable
+                eventHandlers={{
+                  dragend: (event: LeafletEvent) => {
+                    const marker = event.target as L.Marker
+                    const point = marker.getLatLng()
+                    void posicionarCocho(cocho.id, [point.lat, point.lng])
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="min-w-[220px]">
+                    <p className="font-semibold text-ink-primary">{cocho.nome}</p>
+                    <p className="mt-1 font-mono text-xs text-ink-muted">
+                      {cocho.codigo_qr}
+                    </p>
+                    <div className="my-3">
+                      <StatusBadge status={statusBadge(status)}>
+                        {status.toUpperCase()}
+                      </StatusBadge>
+                    </div>
+                    <p className="text-xs text-ink-muted">
+                      Pasto: {areasPorId.get(cocho.map_area_id ?? '')?.nome ?? 'Nao identificado'}
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
+                      <button
+                        type="button"
+                        onClick={() => void lancarAbastecimentoCocho(cocho)}
+                        className="rounded-md bg-green px-2 py-2 text-xs font-semibold text-white"
+                      >
+                        Lancar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void editarCochoRapido(cocho)}
+                        className="rounded-md border border-border px-2 py-2 text-xs font-semibold text-ink-secondary"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void retirarPinCocho(cocho)}
+                        className="rounded-md border border-red/30 px-2 py-2 text-xs font-semibold text-red"
+                      >
+                        Retirar
+                      </button>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+        {showLotes &&
+          lotesComPasto.map((lote, index) => {
+            const area = areasPorId.get(lote.map_area_id ?? '')
+            const center = area ? calcularCentroFeature(areaFeature(area)) : null
+
+            if (!area || !center) return null
+
+            return (
+              <Marker
+                key={`${lote.id}-${lote.map_area_id}`}
+                position={center}
+                icon={buildPinIcon({
+                  label: `L${index + 1}`,
+                  color: '#7c3aed',
+                  shape: 'square',
+                })}
+                draggable
+                eventHandlers={{
+                  dragend: (event: LeafletEvent) => {
+                    const marker = event.target as L.Marker
+                    const point = marker.getLatLng()
+                    void moverLote(lote, [point.lat, point.lng])
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="min-w-[220px]">
+                    <p className="font-semibold text-ink-primary">{lote.nome}</p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {lote.quantidade_animais ?? 0} cabecas
+                    </p>
+                    <p className="mt-2 text-xs text-ink-muted">
+                      Pasto atual: {area.nome}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+        <ClickToPlaceItem
+          enabled={Boolean(cochoParaPosicionar || loteParaPosicionar)}
+          onPlace={(point) => {
+            if (cochoParaPosicionar) {
+              void posicionarCocho(cochoParaPosicionar, point)
+              return
+            }
+
+            if (loteParaPosicionar) {
+              const lote = lotes.find((item) => item.id === loteParaPosicionar)
+
+              if (lote) {
+                void moverLote(lote, point)
+              }
+            }
+          }}
+        />
+
+        <ZoomControls />
+      </MapContainer>
+
+      <div className="absolute inset-x-4 top-4 z-[1200] flex items-start justify-between gap-3 pointer-events-none">
+        <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1.5 rounded-lg border border-white/20 bg-white/95 p-1.5 shadow-xl backdrop-blur">
+          <select
+            value={fazendaSelecionadaId}
+            onChange={(event) => setFazendaSelecionadaId(event.target.value)}
+            className="input h-9 w-[160px] min-w-0 truncate py-1.5"
+          >
+            {fazendas.map((fazenda) => (
+              <option key={fazenda.id} value={fazenda.id}>
+                {fazenda.nome}
+              </option>
+            ))}
+          </select>
+
+          {(['hoje', '7d', '30d', 'todos'] as Periodo[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setPeriodo(item)}
+              className={`h-9 rounded-md px-2.5 text-xs font-bold ${
+                periodo === item
+                  ? 'bg-green text-white'
+                  : 'text-ink-secondary hover:bg-green/10'
+              }`}
+            >
+              {item === 'hoje' ? 'Hoje' : item === 'todos' ? 'Tudo' : item}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="h-9 rounded-md px-2.5 text-xs font-bold text-ink-secondary hover:bg-green/10 disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        <div className="pointer-events-auto hidden items-center gap-2 2xl:flex">
+          <Metric title="Cochos" value={cochos.length} icon={Box} />
+          <Metric title="Lotes" value={lotes.length} icon={Beef} />
+          <Metric title="Pastos" value={areas.length} icon={Layers} />
+          <Metric title="Alertas" value={cochos.filter((c) => getStatusCocho(c.id) !== 'ok').length} icon={AlertTriangle} />
+        </div>
       </div>
 
-      <p className="text-xl font-bold text-ink-primary mt-2 font-mono">
+      <div className="absolute bottom-4 left-4 z-[1200] flex max-w-[calc(100%-2rem)] flex-wrap gap-2 rounded-lg border border-white/20 bg-white/95 p-2 shadow-xl backdrop-blur">
+        {[
+          { label: 'Pastos', active: showAreas, onClick: () => setShowAreas((v) => !v) },
+          { label: 'Rotulos', active: showLabels, onClick: () => setShowLabels((v) => !v) },
+          { label: 'Cochos', active: showCochos, onClick: () => setShowCochos((v) => !v) },
+          { label: 'Lotes', active: showLotes, onClick: () => setShowLotes((v) => !v) },
+          { label: 'Rota', active: showRota, onClick: () => setShowRota((v) => !v) },
+        ].map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.onClick}
+            className={`h-9 rounded-md px-3 text-xs font-bold ${
+              item.active ? 'bg-green/10 text-green' : 'text-ink-muted hover:bg-surface'
+            }`}
+          >
+            {item.active ? <Eye size={13} className="mr-1 inline" /> : <EyeOff size={13} className="mr-1 inline" />}
+            {item.label}
+          </button>
+        ))}
+
+        <div className="h-9 w-px bg-border" />
+
+        <button
+          type="button"
+          onClick={() => setBaseMapa((value) => (value === 'satelite' ? 'osm' : 'satelite'))}
+          className="h-9 rounded-md px-3 text-xs font-bold text-ink-secondary hover:bg-green/10"
+        >
+          <Satellite size={13} className="mr-1 inline" />
+          {baseMapa === 'satelite' ? 'Satelite' : 'Ruas'}
+        </button>
+      </div>
+
+      {(cochoParaPosicionar || loteParaPosicionar) && (
+        <div className="absolute left-1/2 top-20 z-[1210] w-[330px] -translate-x-1/2 rounded-lg border border-green/30 bg-white/95 p-3 text-sm shadow-xl backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-ink-primary">
+                Clique no mapa para posicionar.
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {cochoParaPosicionar
+                  ? 'Depois disso, o pin do cocho pode ser arrastado para ajuste fino.'
+                  : 'Clique dentro do pasto onde o lote esta localizado.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                cancelarPosicionamento()
+              }}
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-ink-muted hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
+              Cancelar
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] font-medium text-ink-muted">
+            Esc tambem cancela.
+          </p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="absolute inset-0 z-[1300] flex items-center justify-center bg-slate-950/30 backdrop-blur-[1px]">
+          <div className="rounded-lg border border-white/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink-primary shadow-xl">
+            Carregando mapa operacional...
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="absolute left-4 right-4 top-20 z-[1220] rounded-lg border border-red/30 bg-white/95 p-3 text-sm font-semibold text-red shadow-xl">
+          {errorMessage}
+        </div>
+      )}
+
+      {painelAberto ? (
+        <aside className="absolute bottom-4 right-4 top-20 z-[1210] flex w-[390px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-white/20 bg-white/95 shadow-2xl backdrop-blur max-lg:left-4 max-lg:w-auto">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-ink-primary">Operacao</p>
+              <p className="text-xs text-ink-muted">
+                {mapaFazenda?.nome ?? 'Mapa da fazenda'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPainelAberto(false)}
+              className="h-8 w-8 rounded-md text-ink-muted hover:bg-surface hover:text-ink-primary"
+            >
+              <X size={16} className="mx-auto" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 border-b border-border bg-surface/70 p-1">
+            {[
+              { id: 'cochos' as PainelAtivo, label: 'Cochos', icon: Box },
+              { id: 'lotes' as PainelAtivo, label: 'Lotes', icon: Beef },
+              { id: 'rota' as PainelAtivo, label: 'Rota', icon: Route },
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPainelAtivo(id)}
+                className={`rounded-md px-2 py-2 text-[11px] font-bold ${
+                  painelAtivo === id
+                    ? 'bg-white text-green shadow-sm'
+                    : 'text-ink-muted hover:text-ink-primary'
+                }`}
+              >
+                <Icon size={14} className="mx-auto mb-1" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {painelAtivo === 'cochos' && (
+              <div className="space-y-3">
+                <select
+                  value={statusFiltro}
+                  onChange={(event) => setStatusFiltro(event.target.value as StatusFiltro)}
+                  className="input w-full"
+                >
+                  <option value="todos">Todos os status</option>
+                  <option value="ok">OK</option>
+                  <option value="atencao">Atencao</option>
+                  <option value="atrasado">Atrasado</option>
+                  <option value="sem_registro">Sem registro</option>
+                </select>
+
+                {cochosSemPosicao.length > 0 && (
+                  <PanelBlock title="Cochos sem posicao">
+                    {cochosSemPosicao.map((cocho) => (
+                      <div key={cocho.id} className="rounded-lg border border-border bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-ink-primary">
+                              {cocho.nome}
+                            </p>
+                            <p className="mt-1 font-mono text-xs text-ink-muted">
+                              {cocho.codigo_qr}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCochoParaPosicionar(cocho.id)
+                              setLoteParaPosicionar(null)
+                            }}
+                            className="btn-primary shrink-0 px-3 py-2 text-xs"
+                          >
+                            <MapPin size={13} />
+                            Colocar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </PanelBlock>
+                )}
+
+                <PanelBlock title="Cochos no mapa">
+                  {cochosComPosicao.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-ink-muted">
+                      Nenhum cocho posicionado.
+                    </p>
+                  ) : (
+                    cochosComPosicao.map((cocho) => {
+                      const status = getStatusCocho(cocho.id)
+
+                      return (
+                        <div key={cocho.id} className="rounded-lg border border-border bg-white p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-ink-primary">
+                                {cocho.nome}
+                              </p>
+                              <p className="mt-1 text-xs text-ink-muted">
+                                {areasPorId.get(cocho.map_area_id ?? '')?.nome ?? 'Sem pasto'}
+                              </p>
+                            </div>
+                            <StatusBadge status={statusBadge(status)}>
+                              {status.toUpperCase()}
+                            </StatusBadge>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void lancarAbastecimentoCocho(cocho)}
+                              className="btn-primary justify-center px-2 py-2 text-xs"
+                            >
+                              <Droplets size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void editarCochoRapido(cocho)}
+                              className="btn-ghost justify-center border border-border px-2 py-2 text-xs"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void retirarPinCocho(cocho)}
+                              className="inline-flex items-center justify-center rounded-lg border border-red/30 px-2 py-2 text-xs font-semibold text-red hover:bg-red/10"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </PanelBlock>
+              </div>
+            )}
+
+            {painelAtivo === 'lotes' && (
+              <div className="space-y-3">
+                {lotesSemPasto.length > 0 && (
+                  <PanelBlock title="Lotes sem pasto">
+                    {lotesSemPasto.map((lote) => (
+                      <div key={lote.id} className="rounded-lg border border-border bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-ink-primary">{lote.nome}</p>
+                            <p className="mt-1 text-xs text-ink-muted">
+                              {lote.quantidade_animais ?? 0} cabecas
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLoteParaPosicionar(lote.id)
+                              setCochoParaPosicionar(null)
+                            }}
+                            className="btn-primary shrink-0 px-3 py-2 text-xs"
+                          >
+                            <MapPin size={13} />
+                            Colocar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </PanelBlock>
+                )}
+
+                <PanelBlock title="Pastos e lotes">
+                  {areas
+                    .filter((area) => area.tipo === 'pasto' || area.tipo === 'retiro')
+                    .map((area) => {
+                      const areaLotes = lotesPorArea.get(area.id) ?? []
+
+                      return (
+                        <div key={area.id} className="rounded-lg border border-border bg-white p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-ink-primary">{area.nome}</p>
+                              <p className="mt-1 text-xs text-ink-muted">
+                                {formatarHectares(Number(area.area_hectares ?? 0))}
+                              </p>
+                            </div>
+                            <span
+                              className="h-4 w-4 rounded-full border border-white shadow-sm"
+                              style={{ background: area.cor || getCorArea(area.geojson) }}
+                            />
+                          </div>
+
+                          {areaLotes.length === 0 ? (
+                            <p className="mt-3 text-xs text-ink-muted">Sem lote neste pasto.</p>
+                          ) : (
+                            <div className="mt-3 space-y-2">
+                              {areaLotes.map((lote) => (
+                                <div key={lote.id} className="rounded-md bg-surface px-3 py-2">
+                                  <p className="text-xs font-semibold text-ink-primary">{lote.nome}</p>
+                                  <p className="text-[11px] text-ink-muted">
+                                    {lote.quantidade_animais ?? 0} cabecas
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                </PanelBlock>
+              </div>
+            )}
+
+            {painelAtivo === 'rota' && (
+              <div className="space-y-2">
+                {pontos.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-ink-muted">
+                    Nenhum abastecimento com GPS neste periodo.
+                  </p>
+                ) : (
+                  pontos.map((ponto, index) => (
+                    <div key={ponto.id} className="rounded-lg border border-border bg-white p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-green/10 font-mono text-xs font-semibold text-green">
+                          {index + 1}
+                        </span>
+                        <span className="font-mono text-xs text-ink-muted">
+                          {fmtDateTime(ponto.registrado_em)}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-ink-primary">
+                        {ponto.cocho?.nome ?? 'Cocho nao identificado'}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        {ponto.quantidade_kg ?? 0} kg -{' '}
+                        {ponto.dispositivo?.tratador_nome ??
+                          ponto.dispositivo?.nome ??
+                          'Sem tratador'}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </aside>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPainelAberto(true)}
+          className="absolute right-4 top-28 z-[1210] flex h-11 w-11 items-center justify-center rounded-lg border border-white/20 bg-white/95 text-ink-primary shadow-xl backdrop-blur hover:bg-green/10"
+        >
+          <SlidersHorizontal size={18} />
+        </button>
+      )}
+
+      {savingId && (
+        <div className="absolute bottom-4 right-4 z-[1220] rounded-lg border border-white/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink-primary shadow-xl">
+          Salvando operacao...
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Metric({
+  title,
+  value,
+  icon: Icon,
+}: {
+  title: string
+  value: number | string
+  icon: typeof Box
+}) {
+  return (
+    <div className="min-w-[92px] rounded-lg border border-white/15 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+      <div className="flex items-center gap-2">
+        <Icon size={13} className="text-green" />
+        <span className="text-[11px] font-medium text-ink-muted">{title}</span>
+      </div>
+      <p className="mt-1 font-mono text-lg font-bold text-ink-primary">
         {value}
       </p>
     </div>
   )
 }
 
-export default function MapaOperacionalPage() {
-  const [periodo, setPeriodo] = useState<Periodo>('7d')
-  const [loading, setLoading] = useState(true)
-  const [registros, setRegistros] = useState<Abastecimento[]>([])
-  const [fazendaCentro, setFazendaCentro] =
-    useState<[number, number] | null>(null)
-  const [statusCochos, setStatusCochos] = useState<StatusCocho[]>([])
-  const [fazendaAtual, setFazendaAtual] = useState<Fazenda | null>(null)
-const [mapaFazenda, setMapaFazenda] = useState<FarmMap | null>(null)
-const [geojsonFazenda, setGeojsonFazenda] =
-  useState<GeoJsonFeatureCollection | null>(null)
-const [loadingMapaFazenda, setLoadingMapaFazenda] = useState(false)
-const [erroMapaFazenda, setErroMapaFazenda] = useState<string | null>(null)
-
-  function getStatusCocho(cochoId: string) {
-    return (
-      statusCochos.find((s) => s.id === cochoId)?.status_operacional ?? 'ok'
-    )
-  }
-
-  async function carregarMapaFazenda(fazenda: Fazenda | null) {
-  if (!fazenda?.id || !fazenda?.empresa_id) {
-    setMapaFazenda(null)
-    setGeojsonFazenda(null)
-    return
-  }
-
-  setLoadingMapaFazenda(true)
-  setErroMapaFazenda(null)
-
-  try {
-    const mapaAtivo = await getActiveFarmMap({
-      empresaId: fazenda.empresa_id,
-      fazendaId: fazenda.id,
-    })
-
-    if (!mapaAtivo) {
-      setMapaFazenda(null)
-      setGeojsonFazenda(null)
-      return
-    }
-
-    const geojson = await loadFarmMapGeoJson(mapaAtivo)
-
-    setMapaFazenda(mapaAtivo)
-    setGeojsonFazenda(geojson)
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o mapa da fazenda.'
-
-    setErroMapaFazenda(message)
-    setMapaFazenda(null)
-    setGeojsonFazenda(null)
-  } finally {
-    setLoadingMapaFazenda(false)
-  }
-}
-
-  async function load() {
-    setLoading(true)
-
-    let q = supabase
-      .from('abastecimentos')
-      .select(
-        '*, cocho:cochos(nome,codigo_qr), lote:lotes(nome), dispositivo:dispositivos(nome,tratador_nome)'
-      )
-      .not('latitude', 'is', null)
-      .not('longitude', 'is', null)
-      .order('registrado_em', { ascending: true })
-
-    const inicio = getInicioPeriodo(periodo)
-
-    if (inicio) {
-      q = q.gte('registrado_em', inicio)
-    }
-
-    const [{ data, error }, { data: fazendasData }] =
-      await Promise.all([
-        q,
-        supabase
-          .from('fazendas')
-          .select('*')
-          .eq('ativo', true)
-          .limit(1),
-      ])
-
-    if (error) {
-      console.error(error)
-      setRegistros([])
-    } else {
-      setRegistros((data as Abastecimento[]) ?? [])
-    }
-
-   const fazenda = (fazendasData as Fazenda[] | null)?.[0] ?? null
-
-  setFazendaAtual(fazenda)
-
-  if (fazenda?.latitude && fazenda?.longitude) {
-    setFazendaCentro([
-      Number(fazenda.latitude),
-      Number(fazenda.longitude),
-    ])
-  } else {
-    setFazendaCentro(null)
-  }
-
-  await carregarMapaFazenda(fazenda)
-
-    const { data: statusData } = await supabase
-      .from('vw_status_cochos')
-      .select('id,status_operacional')
-      .eq('ativo', true)
-
-    setStatusCochos((statusData as StatusCocho[]) ?? [])
-
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    load()
-  }, [periodo])
-
-  const pontos = useMemo<PontoMapa[]>(() => {
-    return registros
-      .filter((r) => r.latitude && r.longitude)
-      .map((r) => ({
-        ...r,
-        lat: Number(r.latitude),
-        lng: Number(r.longitude),
-      }))
-  }, [registros])
-
-  const centro = useMemo<[number, number]>(() => {
-    if (fazendaCentro) return fazendaCentro
-
-    if (pontos.length > 0) {
-      return [pontos[0].lat, pontos[0].lng]
-    }
-
-    return [-15.0725, -57.1811]
-  }, [pontos, fazendaCentro])
-
-  const rota = pontos.map((p) => [p.lat, p.lng] as [number, number])
-
-  function calcularTempoAnterior(index: number) {
-    if (index === 0) return null
-
-    const atual = pontos[index]
-    const anterior = pontos[index - 1]
-
-    const diffMs =
-      new Date(atual.registrado_em).getTime() -
-      new Date(anterior.registrado_em).getTime()
-
-    const minutos = Math.round(diffMs / 60000)
-
-    if (minutos < 1) return 'menos de 1 min'
-    if (minutos < 60) return `${minutos} min`
-
-    const horas = Math.floor(minutos / 60)
-    const resto = minutos % 60
-
-    return `${horas}h ${resto}min`
-  }
-
-  function calcularDistanciaMetros(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) {
-    const R = 6371e3
-
-    const φ1 = (lat1 * Math.PI) / 180
-    const φ2 = (lat2 * Math.PI) / 180
-
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) *
-        Math.cos(φ2) *
-        Math.sin(Δλ / 2) *
-        Math.sin(Δλ / 2)
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-
-    return R * c
-  }
-
-  function pontoForaDaFazenda(ponto: PontoMapa) {
-    if (!fazendaCentro) return false
-
-    const distancia = calcularDistanciaMetros(
-      fazendaCentro[0],
-      fazendaCentro[1],
-      ponto.lat,
-      ponto.lng
-    )
-
-    return distancia > 3000
-  }
-
-  function calcularDistanciaAnterior(index: number) {
-    if (index === 0) return null
-
-    const atual = pontos[index]
-    const anterior = pontos[index - 1]
-
-    const metros = calcularDistanciaMetros(
-      anterior.lat,
-      anterior.lng,
-      atual.lat,
-      atual.lng
-    )
-
-    if (metros < 1000) {
-      return `${Math.round(metros)} m`
-    }
-
-    return `${(metros / 1000).toFixed(2)} km`
-  }
-
+function PanelBlock({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Mapa Operacional"
-        description="Monitoramento operacional e rastreabilidade em tempo real"
-        action={
-          <button onClick={load} disabled={loading} className="btn-ghost">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Atualizar
-          </button>
-        }
-      />
-
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_390px] gap-6 items-start">
-      <SectionCard title="Mapa Operacional">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-          <div>
-            <p className="text-sm font-semibold text-ink-primary">
-              Satélite, KMZ/KML, pontos GPS e rota operacional
-            </p>
-
-            <p className="text-xs text-ink-muted mt-1">
-              {pontos.length} ponto{pontos.length !== 1 ? 's' : ''} com GPS neste período
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { value: 'hoje', label: 'Hoje' },
-              { value: '7d', label: '7 dias' },
-              { value: '30d', label: '30 dias' },
-              { value: 'todos', label: 'Todos' },
-            ].map((item) => (
-              <button
-                key={item.value}
-                onClick={() => setPeriodo(item.value as Periodo)}
-                className={`px-3 py-2 text-xs rounded-lg transition-all font-medium ${
-                  periodo === item.value
-                    ? 'bg-green/10 text-green border border-green/20'
-                    : 'bg-surface text-ink-muted border border-border hover:bg-surface/80'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="h-[calc(100vh-260px)] min-h-[620px] flex items-center justify-center">
-            <div className="w-8 h-8 border-3 border-green/20 border-t-green rounded-full animate-spin" />
-          </div>
-        ) : (
-          <div className="relative h-[calc(100vh-260px)] min-h-[620px] rounded-xl overflow-hidden border border-border bg-surface">
-            <MapContainer
-              center={centro}
-              zoom={16}
-              minZoom={10}
-              maxZoom={16}
-              scrollWheelZoom
-              maxBoundsViscosity={1}
-              className="w-full h-full"
-            >
-              <AtualizarCentro
-                centro={centro}
-                zoom={16}
-                geojson={geojsonFazenda}
-              />
-
-              <TileLayer
-                attribution="Tiles © Esri"
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                noWrap
-                maxZoom={16}
-                maxNativeZoom={16}
-              />
-
-              {geojsonFazenda?.features.length ? (
-                  <>
-                    <GeoJSON
-                      key={`${mapaFazenda?.id ?? 'mapa'}-${geojsonFazenda.features.length}`}
-                      data={geojsonFazenda as any}
-                      style={(feature) => getAreaStyle(feature)}
-                    />
-
-                    {geojsonFazenda.features.map((feature, index) => (
-                      <MapPastoLabel
-                        key={`${mapaFazenda?.id ?? 'mapa'}-label-${index}`}
-                        feature={feature}
-                        index={index}
-                      />
-                    ))}
-                  </>
-                ) : null}
-
-              {rota.length > 1 && (
-                <Polyline
-                  positions={rota}
-                  pathOptions={{
-                    color: '#4ade80',
-                    weight: 3,
-                    opacity: 0.75,
-                  }}
-                />
-              )}
-
-              {pontos.map((ponto, index) => (
-                <Marker
-                  key={ponto.id}
-                  position={[ponto.lat, ponto.lng]}
-                  icon={criarMarcadorPorStatus(
-                    ponto.tipo_abastecimento,
-                    index + 1,
-                    getStatusCocho(ponto.cocho_id),
-                    pontoForaDaFazenda(ponto)
-                  )}
-                >
-                  <Popup>
-                    <div className="min-w-[240px]">
-                      <div className="mb-3">
-                        <h3 className="font-semibold text-ink-primary">
-                          #{index + 1} — {ponto.cocho?.nome ?? 'Cocho'}
-                        </h3>
-
-                        <p className="text-xs text-ink-muted font-mono mt-1">
-                          {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
-                        </p>
-                      </div>
-
-                      <div className="space-y-2 text-sm mb-3">
-                        <div className="flex justify-between">
-                          <span className="text-ink-muted">Quantidade:</span>
-                          <span className="font-semibold text-ink-primary">
-                            {ponto.quantidade_kg ?? 0} kg
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span className="text-ink-muted">Tratador:</span>
-                          <span className="font-semibold text-ink-primary">
-                            {ponto.dispositivo?.tratador_nome ??
-                              ponto.dispositivo?.nome ??
-                              '—'}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span className="text-ink-muted">Horário:</span>
-                          <span className="font-semibold text-ink-primary font-mono text-xs">
-                            {fmtDateTime(ponto.registrado_em)}
-                          </span>
-                        </div>
-
-                        {calcularTempoAnterior(index) && (
-                          <div className="flex justify-between">
-                            <span className="text-ink-muted">Tempo anterior:</span>
-                            <span className="font-semibold text-ink-primary">
-                              {calcularTempoAnterior(index)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-3 border-t border-border">
-                        <StatusBadge
-                          status={
-                            getStatusCocho(ponto.cocho_id) === 'ok'
-                              ? 'ok'
-                              : getStatusCocho(ponto.cocho_id) === 'atencao'
-                              ? 'warn'
-                              : 'err'
-                          }
-                        >
-                          {getStatusCocho(ponto.cocho_id).toUpperCase()}
-                        </StatusBadge>
-
-                        {pontoForaDaFazenda(ponto) && (
-                          <div className="mt-2 p-2 bg-red/10 rounded text-xs text-red font-semibold">
-                            ⚠ Fora da área operacional
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-ink-muted font-mono mt-3">
-                        {ponto.lat.toFixed(6)}, {ponto.lng.toFixed(6)}
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-
-            <MapLegend />
-            
-          </div>
-        )}
-      </SectionCard>
-
-      <div className="space-y-4 xl:sticky xl:top-4">
-        <SectionCard title="Painel da Fazenda">
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-surface p-3">
-              <p className="text-xs text-ink-muted">Mapa da fazenda</p>
-
-              {loadingMapaFazenda ? (
-                <p className="text-sm font-semibold text-ink-primary mt-1">
-                  Carregando KMZ/KML...
-                </p>
-              ) : erroMapaFazenda ? (
-                <p className="text-sm font-semibold text-red mt-1">
-                  {erroMapaFazenda}
-                </p>
-              ) : geojsonFazenda?.features.length ? (
-                <div className="mt-1 space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold text-ink-primary">
-                      KMZ/KML carregado
-                    </p>
-
-                    <p className="text-xs text-ink-muted mt-1">
-                      {mapaFazenda?.nome ?? 'Mapa da fazenda'}
-                    </p>
-
-                    <p className="text-xs text-ink-muted mt-1">
-                      {geojsonFazenda.features.length} feição
-                      {geojsonFazenda.features.length !== 1 ? 'ões' : ''} carregada
-                      {geojsonFazenda.features.length !== 1 ? 's' : ''}.
-                    </p>
-                  </div>
-
-                  {fazendaAtual?.empresa_id && fazendaAtual?.id && (
-                    <MapUploader
-                      variant="compact"
-                      buttonLabel="Substituir KMZ/KML"
-                      empresaId={fazendaAtual.empresa_id}
-                      fazendaId={fazendaAtual.id}
-                      onUploaded={(payload) => {
-                        setMapaFazenda(payload.map)
-                        setGeojsonFazenda(payload.geojson)
-                      }}
-                    />
-                  )}
-                </div>
-              ) : fazendaAtual?.empresa_id && fazendaAtual?.id ? (
-                <MapUploader
-                  empresaId={fazendaAtual.empresa_id}
-                  fazendaId={fazendaAtual.id}
-                  onUploaded={(payload) => {
-                    setMapaFazenda(payload.map)
-                    setGeojsonFazenda(payload.geojson)
-                  }}
-                />
-              ) : (
-                <p className="text-sm text-ink-muted mt-1">
-                  Nenhuma fazenda selecionada.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <MetricTile
-                title="GPS"
-                value={pontos.length}
-                icon={Navigation}
-                color="text-blue"
-              />
-
-              <MetricTile
-                title="OK"
-                value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'ok').length}
-                icon={Zap}
-                color="text-green"
-              />
-
-              <MetricTile
-                title="Atenção"
-                value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'atencao').length}
-                icon={Clock}
-                color="text-amber"
-              />
-
-              <MetricTile
-                title="Atrasados"
-                value={pontos.filter((p) => getStatusCocho(p.cocho_id) === 'atrasado').length}
-                icon={AlertTriangle}
-                color="text-red"
-              />
-
-              <MetricTile
-                title="Fora"
-                value={pontos.filter((p) => pontoForaDaFazenda(p)).length}
-                icon={MapPin}
-                color="text-rose"
-              />
-
-              <MetricTile
-                title="Período"
-                value={
-                  periodo === 'hoje'
-                    ? 'Hoje'
-                    : periodo === '7d'
-                    ? '7d'
-                    : periodo === '30d'
-                    ? '30d'
-                    : 'Todos'
-                }
-                icon={Clock}
-                color="text-ink-muted"
-              />
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Linha da Rota">
-          <div className="space-y-3 max-h-[calc(100vh-520px)] min-h-[260px] overflow-y-auto pr-2">
-            {pontos.length === 0 ? (
-              <p className="text-sm text-ink-muted py-8 text-center">
-                Nenhum registro com GPS neste período.
-              </p>
-            ) : (
-              pontos.map((ponto, index) => (
-                <div
-                  key={ponto.id}
-                  className="border border-border rounded-lg p-3 bg-white hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="w-7 h-7 rounded-md bg-green/10 text-green flex items-center justify-center text-xs font-mono font-semibold flex-shrink-0">
-                      {index + 1}
-                    </span>
-
-                    <StatusBadge
-                      status={
-                        getStatusCocho(ponto.cocho_id) === 'ok'
-                          ? 'ok'
-                          : getStatusCocho(ponto.cocho_id) === 'atencao'
-                          ? 'warn'
-                          : 'err'
-                      }
-                    >
-                      {getStatusCocho(ponto.cocho_id).toUpperCase()}
-                    </StatusBadge>
-                  </div>
-
-                  <p className="text-sm font-semibold text-ink-primary">
-                    {ponto.cocho?.nome ?? 'Cocho não identificado'}
-                  </p>
-
-                  <p className="text-xs text-ink-muted font-mono mt-1">
-                    {ponto.cocho?.codigo_qr ?? ponto.cocho_id}
-                  </p>
-
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-ink-muted">
-                      <span className="font-medium">Quantidade:</span>{' '}
-                      {ponto.quantidade_kg ?? 0} kg
-                    </p>
-
-                    <p className="text-xs text-ink-muted">
-                      <span className="font-medium">Tratador:</span>{' '}
-                      {ponto.dispositivo?.tratador_nome ??
-                        ponto.dispositivo?.nome ??
-                        'Sem tratador'}
-                    </p>
-
-                    <p className="text-xs text-ink-muted font-mono">
-                      <span className="font-medium">Horário:</span>{' '}
-                      {fmtDateTime(ponto.registrado_em)}
-                    </p>
-                  </div>
-
-                  {calcularTempoAnterior(index) && (
-                    <div className="mt-2 pt-2 border-t border-border/50">
-                      <p className="text-xs text-green font-medium">
-                        ↓ {calcularTempoAnterior(index)}
-                      </p>
-
-                      {calcularDistanciaAnterior(index) && (
-                        <p className="text-xs text-blue-600 font-medium mt-1">
-                          ↗ {calcularDistanciaAnterior(index)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </SectionCard>
-      </div>
-    </div>
+    <div>
+      <p className="mb-2 text-xs font-bold text-ink-primary">{title}</p>
+      <div className="space-y-2">{children}</div>
     </div>
   )
 }
