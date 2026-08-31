@@ -670,3 +670,72 @@ RISCO: vender SaaS multiempresa sem prova objetiva de isolamento.
 CORRECAO: criar testes SQL/RLS, testes de RPC e E2E minimo.
 
 COMO VALIDAR: CI executa testes antes de merge/deploy.
+
+## Fase 0 - Implementacao Inicial
+
+Data: 2026-08-30.
+
+Status: parcialmente implementada. O hardening inicial das RPCs e a estabilizacao do lint do coletor foram aplicados. Ainda restam Secure Storage, testes multi-tenant com fixtures reais/isoladas e RBAC fino por papel.
+
+### RPC Inventory
+
+RPC | Quem chama | Role final | Security | Search path | Finalidade | Risco | Status
+--- | --- | --- | --- | --- | --- | --- | ---
+`_resolve_device(text)` | RPC legado interno | `postgres` | definer | `farmsafe, public` | resolver dispositivo por segredo | medio se exposta | necessaria interna
+`admin_listar_usuarios()` | `UsuariosPage` | `authenticated` | definer | `farmsafe, public` | listar usuarios da empresa | alto se anon/public | necessaria
+`admin_atualizar_usuario(...)` | `UsuariosPage` | `authenticated` | definer | `farmsafe, public` | atualizar perfil/role/status | alto se anon/public | necessaria
+`admin_revogar_dispositivo(uuid,text)` | `DispositivosPage` | `authenticated` | definer | `farmsafe, public` | revogar dispositivo sem apagar historico | alto se anon/public | necessaria
+`admin_reativar_dispositivo(uuid)` | `DispositivosPage` | `authenticated` | definer | `farmsafe, public` | reativar dispositivo | medio/alto | necessaria
+`ativar_dispositivo(text)` | nao chamado pelo coletor atual | `anon` | definer | `farmsafe, public` | ativacao legada | medio | legada mantida
+`coletor_obter_carga(text)` | `apps/coletor/src/services/carga.ts` | `anon` | definer | `farmsafe, public` | baixar carga offline | alto se validar mal segredo | necessaria
+`coletor_verificar_atualizacao(text,text,text,int)` | `apps/coletor/src/services/atualizacao.ts` | `anon` | definer | `farmsafe, public` | versao minima/update | baixo/medio | necessaria
+`criar_log_operacional(...)` | banco/RPC legado interno | `postgres` | definer | `farmsafe, public` | registrar log operacional | alto se publico | interna
+`criar_setup_empresa_inicial(...)` | `SetupEmpresaPage` | `authenticated` | definer | `farmsafe, public` | primeiro setup | alto | necessaria
+`gerar_codigo_cocho(uuid)` | `CochosPage` | default | invoker | vazio | gerar codigo | baixo/medio | necessaria
+`gerar_codigo_fazenda()` | banco/cadastro | default | invoker | vazio | gerar codigo | baixo | necessaria
+`get_dados_sincronizacao(text,timestamptz)` | nao chamado pelo coletor atual | `anon` | definer | `farmsafe, public` | delta legado | medio | legada mantida
+`get_empresa_id()` | RLS/services | default | definer | `farmsafe, public` | resolver empresa do usuario | alto se errada | necessaria
+`get_usuario_role()` | RPCs admin | default | definer | `farmsafe, public` | resolver role | alto se errada | necessaria
+`listar_saldos_insumos()` | estoque web | `authenticated` | definer | `farmsafe, public` | saldo calculado | medio | necessaria
+`mover_lote_mapa(...)` | mapa operacional | `authenticated` | invoker | `farmsafe, public` | mover/subdividir lote | medio | necessaria
+`processar_documento_fiscal_estoque(...)` | fiscal web | `authenticated` | definer | `farmsafe, public` | gerar entrada estoque de NF-e | alto | necessaria
+`registrar_abastecimento_coletor(...)` | `apps/coletor/src/services/sync.ts` | `anon` | definer | `farmsafe, public` | sync do coletor | alto | necessaria
+`set_updated_at()` | triggers | default | invoker | vazio | timestamp | baixo | necessaria
+`sync_abastecimento(...)` | nao chamado pelo coletor atual | `anon` | definer | `farmsafe, public` | sync legado | alto | legada mantida
+`usuario_tem_role(text[])` | RLS/RPCs | default | definer | `farmsafe, public` | checar role | alto se errada | necessaria
+
+### Migrations Aplicadas
+
+- `supabase/migrations/20260831024158_phase0_rpc_hardening.sql`
+  - adiciona `search_path` explicito em RPCs legadas/privilegiadas;
+  - remove execucao herdada de `PUBLIC`;
+  - mantem RPCs de coletor com `anon` quando o dispositivo valida `device_secret` internamente;
+  - mantem RPCs administrativas apenas para `authenticated`;
+  - fecha `criar_log_operacional` para chamada direta por clientes.
+
+### Testes/Checks Criados
+
+- `supabase/tests/phase0_security_checks.sql`
+  - verifica RLS em tabelas do schema `farmsafe`;
+  - verifica `vw_status_cochos` com `security_invoker`;
+  - verifica contrato da RPC `registrar_abastecimento_coletor`;
+  - verifica indice de idempotencia `abastecimentos_empresa_client_uuid_uniq`;
+  - verifica RPCs admin sem grant para `anon`;
+  - verifica helper de log sem chamada publica.
+
+Resultado remoto em 2026-08-30: todos os checks retornaram `PASS`.
+
+### QA
+
+- `apps/web npm run lint`: passou.
+- `apps/web npm run build`: passou com aviso de bundle grande.
+- `apps/coletor npm run lint`: passou apos restringir lint a codigo fonte relevante.
+- `apps/coletor npm run build`: passou com aviso de bundle grande.
+
+### Pendencias da Fase 0
+
+- Secure Storage para `device_secret`.
+- Testes multi-tenant com usuarios/empresas de teste fora do banco de producao.
+- Testes negativos reais de dispositivo revogado e segredo invalido.
+- RBAC fino por papel em policies/RPCs para escritas sensiveis.
+- Plano de aposentadoria das RPCs legadas `sync_abastecimento`, `get_dados_sincronizacao` e `ativar_dispositivo`.

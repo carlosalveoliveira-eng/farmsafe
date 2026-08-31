@@ -35,11 +35,12 @@ Use este checklist antes de vender, demonstrar para cliente real ou ativar uma n
 ## Seguranca
 
 - [ ] Nenhum `service_role` aparece em frontend, app mobile ou variavel `VITE_*`.
-- [ ] RPCs `SECURITY DEFINER` possuem `set search_path`.
-- [ ] RPCs administrativas revogam `public` e `anon`.
+- [x] RPCs criticas/legadas auditadas na Fase 0 possuem `set search_path` quando usam `SECURITY DEFINER`.
+- [x] RPCs administrativas revogam `public` e `anon`.
 - [ ] RPCs anon validam segredo de dispositivo internamente.
 - [ ] Dispositivos sao revogados por status, sem apagar historico.
 - [ ] Politicas de Storage restringem acesso por bucket e caminho da empresa.
+- [ ] `device_secret` do coletor usa Secure Storage em vez de `localStorage`.
 
 ## Backup e recuperacao
 
@@ -64,6 +65,7 @@ Use este checklist antes de vender, demonstrar para cliente real ou ativar uma n
 - [ ] `app_versions` no Supabase aponta para a versao correta.
 - [ ] Atualizacao obrigatoria foi testada em aparelho real.
 - [ ] Plano de Secure Storage esta priorizado antes de escala comercial ampla.
+- [x] `npm run lint` do coletor finaliza sem varrer artefatos Android gerados.
 
 ## Comercial
 

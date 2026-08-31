@@ -87,7 +87,7 @@ export function RegistroPage({
     return () => {
       ativo = false
     }
-  }, [codigoQr])
+  }, [codigoQr, codigoQrNormalizado])
 
   useEffect(() => {
     if (!navigator.geolocation) {

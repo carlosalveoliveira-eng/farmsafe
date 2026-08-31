@@ -187,3 +187,36 @@ Ponto de hardening:
 3. Substituir ou arquivar `supabase/farmsafe-functions.sql`, que esta divergente.
 4. Confirmar historico real de migrations no painel Supabase, ja que a tabela padrao nao apareceu.
 5. Rodar `supabase db advisors` novamente em janela mais estavel; a chamada via CLI ficou sem resposta.
+
+## Atualizacao Fase 0 - 2026-08-30
+
+Migration aplicada:
+
+- `supabase/migrations/20260831024158_phase0_rpc_hardening.sql`
+
+Resultado:
+
+- RPCs administrativas permanecem apenas com `authenticated`.
+- RPCs usadas pelo coletor permanecem acessiveis por `anon`, pois a autorizacao real depende de `device_secret` validado internamente.
+- RPCs legadas do coletor nao foram removidas para nao quebrar APKs antigos; foram mantidas com grants explicitos e sem execucao herdada de `PUBLIC`.
+- `criar_log_operacional` passou a ser chamada interna, sem `PUBLIC`, `anon` ou `authenticated`.
+- `ativar_dispositivo`, `sync_abastecimento` e `criar_log_operacional` receberam `search_path = farmsafe, public`.
+
+Checks criados:
+
+- `supabase/tests/phase0_security_checks.sql`
+
+Resultado dos checks remotos:
+
+- `all_farmsafe_tables_have_rls`: PASS
+- `vw_status_cochos_is_security_invoker`: PASS
+- `collector_rpc_contract_exists`: PASS
+- `collector_idempotency_index_exists`: PASS
+- `admin_rpcs_not_granted_to_anon`: PASS
+- `internal_log_rpc_not_publicly_callable`: PASS
+
+Pendencias:
+
+- apos confirmar que todos os dispositivos estao em versoes novas, planejar remocao ou bloqueio final das RPCs legadas;
+- criar testes multi-tenant com fixtures isoladas em ambiente de staging;
+- implementar Secure Storage no coletor antes de escala comercial ampla.

@@ -143,15 +143,14 @@ function App() {
       } finally {
         if (!mostrarLoading) {
           setInicializando(false)
-          return
+        } else {
+          const tempoPassado = Date.now() - inicio
+          const esperaMinima = Math.max(0, 2500 - tempoPassado)
+
+          window.setTimeout(() => {
+            setInicializando(false)
+          }, esperaMinima)
         }
-
-        const tempoPassado = Date.now() - inicio
-        const esperaMinima = Math.max(0, 2500 - tempoPassado)
-
-        window.setTimeout(() => {
-          setInicializando(false)
-        }, esperaMinima)
       }
     },
     [carregarPendentes, carregarResumoCarga, verificarAtualizacao]
