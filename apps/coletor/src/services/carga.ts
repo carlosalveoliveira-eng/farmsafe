@@ -23,7 +23,7 @@ export interface CargaColetorResponse {
 }
 
 export async function atualizarCargaColetor() {
-  const deviceSecret = obterDeviceSecret()
+  const deviceSecret = await obterDeviceSecret()
 
   if (!deviceSecret) {
     throw new Error('Dispositivo não configurado.')

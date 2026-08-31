@@ -675,7 +675,7 @@ COMO VALIDAR: CI executa testes antes de merge/deploy.
 
 Data: 2026-08-30.
 
-Status: parcialmente implementada. O hardening inicial das RPCs e a estabilizacao do lint do coletor foram aplicados. Ainda restam Secure Storage, testes multi-tenant com fixtures reais/isoladas e RBAC fino por papel.
+Status: parcialmente implementada. O hardening inicial das RPCs, a estabilizacao do lint do coletor, a preparacao da camada assincrona de segredo do dispositivo e os checks metadata-only de contrato multi-tenant foram aplicados. Ainda restam a ligacao nativa do Secure Storage no Android, testes multi-tenant com fixtures isoladas e RBAC fino por papel.
 
 ### RPC Inventory
 
@@ -725,16 +725,34 @@ RPC | Quem chama | Role final | Security | Search path | Finalidade | Risco | St
 
 Resultado remoto em 2026-08-30: todos os checks retornaram `PASS`.
 
+- `supabase/tests/phase0_multitenancy_contract.sql`
+  - verifica existencia das tabelas multiempresa esperadas;
+  - verifica coluna `empresa_id` nas tabelas multiempresa;
+  - verifica RLS ligada;
+  - verifica existencia de policies com contrato de tenant;
+  - verifica RPCs administrativas autenticadas;
+  - verifica RPCs do coletor com acesso anon controlado e `search_path` explicito.
+
+Resultado remoto em 2026-08-30: todos os checks retornaram `PASS`.
+
+### Coletor - Segredo do Dispositivo
+
+- `apps/coletor/src/services/device.ts` agora usa API assincrona e uma interface de storage substituivel.
+- Fluxos de inicializacao, ativacao, carga e sincronizacao aguardam a leitura do segredo antes de operar.
+- O fallback atual preserva `localStorage` para nao quebrar coletores ja ativados.
+- A proxima etapa e conectar esta interface a Secure Storage nativo no Android quando os arquivos Android incompletos forem estabilizados e puderem receber `npx cap sync`.
+
 ### QA
 
 - `apps/web npm run lint`: passou.
 - `apps/web npm run build`: passou com aviso de bundle grande.
 - `apps/coletor npm run lint`: passou apos restringir lint a codigo fonte relevante.
 - `apps/coletor npm run build`: passou com aviso de bundle grande.
+- `supabase/tests/phase0_multitenancy_contract.sql`: passou no remoto em leitura de metadados.
 
 ### Pendencias da Fase 0
 
-- Secure Storage para `device_secret`.
+- Conectar Secure Storage nativo ao `device_secret` no Android.
 - Testes multi-tenant com usuarios/empresas de teste fora do banco de producao.
 - Testes negativos reais de dispositivo revogado e segredo invalido.
 - RBAC fino por papel em policies/RPCs para escritas sensiveis.

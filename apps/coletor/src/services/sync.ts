@@ -80,7 +80,7 @@ function traduzirMensagemErro(resposta: SyncResponse) {
 }
 
 export async function sincronizarRegistros() {
-  const deviceSecret = obterDeviceSecret()
+  const deviceSecret = await obterDeviceSecret()
 
   if (!deviceSecret) {
     throw new Error('Dispositivo não configurado.')

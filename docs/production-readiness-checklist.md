@@ -41,6 +41,7 @@ Use este checklist antes de vender, demonstrar para cliente real ou ativar uma n
 - [ ] Dispositivos sao revogados por status, sem apagar historico.
 - [ ] Politicas de Storage restringem acesso por bucket e caminho da empresa.
 - [ ] `device_secret` do coletor usa Secure Storage em vez de `localStorage`.
+- [x] Coletor possui camada assincrona/substituivel para armazenamento do `device_secret`.
 
 ## Backup e recuperacao
 
@@ -65,6 +66,7 @@ Use este checklist antes de vender, demonstrar para cliente real ou ativar uma n
 - [ ] `app_versions` no Supabase aponta para a versao correta.
 - [ ] Atualizacao obrigatoria foi testada em aparelho real.
 - [ ] Plano de Secure Storage esta priorizado antes de escala comercial ampla.
+- [ ] Provider nativo de Secure Storage foi sincronizado no Android com `npx cap sync`.
 - [x] `npm run lint` do coletor finaliza sem varrer artefatos Android gerados.
 
 ## Comercial

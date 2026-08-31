@@ -30,7 +30,7 @@ export function AtivacaoPage({ onAtivado }: AtivacaoPageProps) {
     try {
       setLoading(true)
 
-      salvarDeviceSecret(valor)
+      await salvarDeviceSecret(valor)
 
       const resultado = await atualizarCargaColetor()
 
@@ -40,7 +40,7 @@ export function AtivacaoPage({ onAtivado }: AtivacaoPageProps) {
 
       onAtivado()
     } catch (err) {
-      removerDeviceSecret()
+      await removerDeviceSecret()
 
       const mensagem =
         err instanceof Error

@@ -33,20 +33,9 @@ type CargaResumo = {
   atualizadoEm: string | null
 }
 
-function temDispositivoAtivado() {
-  return Boolean(obterDeviceSecret())
-}
-
-function deveMostrarLoadingInicial() {
-  return temDispositivoAtivado() && navigator.onLine
-}
-
 function App() {
-  const [inicializando, setInicializando] = useState(
-    deveMostrarLoadingInicial
-  )
-
-  const [ativado, setAtivado] = useState(temDispositivoAtivado)
+  const [inicializando, setInicializando] = useState(true)
+  const [ativado, setAtivado] = useState(false)
   const [tela, setTela] = useState<Tela>('home')
   const [codigoQr, setCodigoQr] = useState<string | null>(null)
 
@@ -157,17 +146,29 @@ function App() {
   )
 
   useEffect(() => {
-    const secret = obterDeviceSecret()
+    let cancelado = false
 
-    if (!secret) {
-      setAtivado(false)
-      setInicializando(false)
-      return
+    async function inicializarDispositivo() {
+      const secret = await obterDeviceSecret()
+
+      if (cancelado) return
+
+      if (!secret) {
+        setAtivado(false)
+        setInicializando(false)
+        return
+      }
+
+      setAtivado(true)
+
+      await prepararAppAtivado(navigator.onLine)
     }
 
-    setAtivado(true)
+    inicializarDispositivo()
 
-    prepararAppAtivado(navigator.onLine)
+    return () => {
+      cancelado = true
+    }
   }, [prepararAppAtivado])
 
   useEffect(() => {
@@ -178,13 +179,13 @@ function App() {
   }, [ativado, online, verificarAtualizacao])
 
   useEffect(() => {
-    function aoVoltarParaApp() {
+    async function aoVoltarParaApp() {
       if (document.visibilityState !== 'visible') return
 
       carregarResumoCarga()
       carregarPendentes()
 
-      if (navigator.onLine && obterDeviceSecret()) {
+      if (navigator.onLine && (await obterDeviceSecret())) {
         verificarAtualizacao(true)
       }
     }
