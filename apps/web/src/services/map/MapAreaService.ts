@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import type { MapArea, MapAreaTipo } from "../../types/map";
+import type { GeoJsonFeature, MapArea, MapAreaTipo } from "../../types/map";
 import { calcularAreaHectares } from "../../features/mapa/mapGeometry";
 import { getCorArea, getNomeArea, getTipoArea } from "../../features/mapa/mapTheme";
 
@@ -65,12 +65,14 @@ export async function createMapArea(input: SaveMapAreaInput): Promise<MapArea> {
 }
 
 export async function updateMapArea(
-  areaId: string,
   input: {
+    areaId: string;
+    empresaId: string;
+    fazendaId: string;
     nome: string;
     tipo: MapAreaTipo;
     cor?: string | null;
-    geojson?: any;
+    geojson?: GeoJsonFeature;
     areaHectares?: number | null;
   }
 ): Promise<MapArea> {
@@ -90,7 +92,9 @@ export async function updateMapArea(
   const { data, error } = await db
     .from("map_areas")
     .update(patch)
-    .eq("id", areaId)
+    .eq("id", input.areaId)
+    .eq("empresa_id", input.empresaId)
+    .eq("fazenda_id", input.fazendaId)
     .select("*")
     .single();
 
@@ -125,7 +129,7 @@ export function buildAreaFromFeature(params: {
         nome: getNomeArea(params.feature, params.index),
         tipo,
       },
-    },
+    } as GeoJsonFeature,
     areaHectares: calcularAreaHectares(params.feature),
   };
 }
@@ -135,7 +139,7 @@ export function buildPolygonFeature(params: {
   tipo: MapAreaTipo;
   cor?: string | null;
   points: Array<[number, number]>;
-}) {
+}): GeoJsonFeature {
   const ring = params.points.map(([lat, lng]) => [lng, lat]);
   const first = ring[0];
   const last = ring[ring.length - 1];

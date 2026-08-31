@@ -7,11 +7,15 @@ export type CochoMapa = Cocho & {
   lote?: Pick<Lote, 'id' | 'nome' | 'quantidade_animais' | 'map_area_id'>
 }
 
-export async function listOperationalCochos(fazendaId: string) {
+export async function listOperationalCochos(params: {
+  empresaId: string
+  fazendaId: string
+}) {
   const { data, error } = await db
     .from('cochos')
     .select('*, lote:lotes(id,nome,quantidade_animais,map_area_id)')
-    .eq('fazenda_id', fazendaId)
+    .eq('empresa_id', params.empresaId)
+    .eq('fazenda_id', params.fazendaId)
     .eq('ativo', true)
     .order('nome')
 
@@ -22,11 +26,15 @@ export async function listOperationalCochos(fazendaId: string) {
   return (data as CochoMapa[]) ?? []
 }
 
-export async function listOperationalLotes(fazendaId: string) {
+export async function listOperationalLotes(params: {
+  empresaId: string
+  fazendaId: string
+}) {
   const { data, error } = await db
     .from('lotes')
     .select('*')
-    .eq('fazenda_id', fazendaId)
+    .eq('empresa_id', params.empresaId)
+    .eq('fazenda_id', params.fazendaId)
     .eq('ativo', true)
     .order('nome')
 
@@ -39,6 +47,8 @@ export async function listOperationalLotes(fazendaId: string) {
 
 export async function updateCochoMapPosition(params: {
   cochoId: string
+  empresaId: string
+  fazendaId: string
   latitude: number
   longitude: number
   area: MapArea | null
@@ -52,13 +62,19 @@ export async function updateCochoMapPosition(params: {
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.cochoId)
+    .eq('empresa_id', params.empresaId)
+    .eq('fazenda_id', params.fazendaId)
 
   if (error) {
     throw new Error(`Falha ao posicionar cocho: ${error.message}`)
   }
 }
 
-export async function clearCochoMapPosition(cochoId: string) {
+export async function clearCochoMapPosition(params: {
+  cochoId: string
+  empresaId: string
+  fazendaId: string
+}) {
   const { error } = await db
     .from('cochos')
     .update({
@@ -67,7 +83,9 @@ export async function clearCochoMapPosition(cochoId: string) {
       map_area_id: null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', cochoId)
+    .eq('id', params.cochoId)
+    .eq('empresa_id', params.empresaId)
+    .eq('fazenda_id', params.fazendaId)
 
   if (error) {
     throw new Error(`Falha ao retirar pin do cocho: ${error.message}`)
@@ -76,6 +94,8 @@ export async function clearCochoMapPosition(cochoId: string) {
 
 export async function updateCochoQuickInfo(params: {
   cochoId: string
+  empresaId: string
+  fazendaId: string
   nome: string
   tipoSal: string | null
   capacidadeKg: number | null
@@ -89,6 +109,8 @@ export async function updateCochoQuickInfo(params: {
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.cochoId)
+    .eq('empresa_id', params.empresaId)
+    .eq('fazenda_id', params.fazendaId)
 
   if (error) {
     throw new Error(`Falha ao atualizar cocho: ${error.message}`)
@@ -101,9 +123,14 @@ export async function createAbastecimentoFromMap(params: {
   tipoAbastecimento: string
   observacao?: string | null
 }) {
+  if (!params.cocho.empresa_id) {
+    throw new Error('Cocho sem empresa vinculada. Atualize a pagina e tente novamente.')
+  }
+
   const { data: dispositivo, error: dispositivoError } = await db
     .from('dispositivos')
     .select('id')
+    .eq('empresa_id', params.cocho.empresa_id)
     .eq('fazenda_id', params.cocho.fazenda_id)
     .eq('ativo', true)
     .is('revogado_em', null)

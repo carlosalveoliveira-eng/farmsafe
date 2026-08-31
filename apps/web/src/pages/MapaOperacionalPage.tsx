@@ -63,6 +63,14 @@ type StatusCocho = {
   status_operacional: 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
 }
 
+function statusBadge(
+  status: StatusCocho['status_operacional']
+): 'ok' | 'warn' | 'err' | 'muted' {
+  if (status === 'ok') return 'ok'
+  if (status === 'atencao' || status === 'sem_registro') return 'warn'
+  return 'err'
+}
+
 type PontoMapa = Abastecimento & {
   lat: number
   lng: number
@@ -261,8 +269,14 @@ export default function MapaOperacionalPage() {
           empresaId: fazenda.empresa_id,
           fazendaId: fazenda.id,
         }),
-        listOperationalCochos(fazenda.id),
-        listOperationalLotes(fazenda.id),
+        listOperationalCochos({
+          empresaId: fazenda.empresa_id,
+          fazendaId: fazenda.id,
+        }),
+        listOperationalLotes({
+          empresaId: fazenda.empresa_id,
+          fazendaId: fazenda.id,
+        }),
         abastecimentosQuery,
         supabase
           .from('vw_status_cochos')
@@ -306,6 +320,14 @@ export default function MapaOperacionalPage() {
   }, [cochoParaPosicionar, loteParaPosicionar])
 
   async function posicionarCocho(cochoId: string, point: [number, number]) {
+    const cochoAtual = cochos.find((cocho) => cocho.id === cochoId)
+
+    if (!cochoAtual?.empresa_id) {
+      alert('Cocho sem empresa vinculada. Atualize a pagina e tente novamente.')
+      cancelarPosicionamento()
+      return
+    }
+
     const area = findAreaContainingPoint(point, areas)
 
     setSavingId(cochoId)
@@ -313,6 +335,8 @@ export default function MapaOperacionalPage() {
     try {
       await updateCochoMapPosition({
         cochoId,
+        empresaId: cochoAtual.empresa_id,
+        fazendaId: cochoAtual.fazenda_id,
         latitude: point[0],
         longitude: point[1],
         area,
@@ -339,6 +363,11 @@ export default function MapaOperacionalPage() {
   }
 
   async function retirarPinCocho(cocho: CochoMapa) {
+    if (!cocho.empresa_id) {
+      alert('Cocho sem empresa vinculada. Atualize a pagina e tente novamente.')
+      return
+    }
+
     if (!window.confirm(`Retirar o pin do cocho "${cocho.nome}" do mapa?`)) {
       return
     }
@@ -346,7 +375,11 @@ export default function MapaOperacionalPage() {
     setSavingId(cocho.id)
 
     try {
-      await clearCochoMapPosition(cocho.id)
+      await clearCochoMapPosition({
+        cochoId: cocho.id,
+        empresaId: cocho.empresa_id,
+        fazendaId: cocho.fazenda_id,
+      })
 
       setCochos((atuais) =>
         atuais.map((item) =>
@@ -363,6 +396,11 @@ export default function MapaOperacionalPage() {
   }
 
   async function editarCochoRapido(cocho: CochoMapa) {
+    if (!cocho.empresa_id) {
+      alert('Cocho sem empresa vinculada. Atualize a pagina e tente novamente.')
+      return
+    }
+
     const nome = window.prompt('Nome do cocho', cocho.nome)
 
     if (nome === null) return
@@ -403,6 +441,8 @@ export default function MapaOperacionalPage() {
     try {
       await updateCochoQuickInfo({
         cochoId: cocho.id,
+        empresaId: cocho.empresa_id,
+        fazendaId: cocho.fazenda_id,
         nome,
         tipoSal: tipoSal.trim() || null,
         capacidadeKg,
