@@ -1,28 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  GeoJSON,
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-  useMapEvents,
-} from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import L, { type LeafletEvent } from 'leaflet'
-import {
   AlertTriangle,
   Beef,
   Box,
   Droplets,
   Edit3,
-  Eye,
-  EyeOff,
   Layers,
   MapPin,
-  RefreshCw,
   Route,
   Satellite,
   SlidersHorizontal,
@@ -39,9 +24,9 @@ import {
 import StatusBadge from '../components/ui/StatusBadge'
 import type { FarmMap, GeoJsonFeatureCollection, MapArea } from '../types/map'
 import {
-  getActiveFarmMap,
-  loadFarmMapGeoJson,
-} from '../services/map/MapService'
+  buscarGeoJsonDoMapa,
+  buscarMapaAtivoDaFazenda,
+} from '../services/map/maps'
 import { listMapAreas } from '../services/map/MapAreaService'
 import {
   clearCochoMapPosition,
@@ -53,18 +38,25 @@ import {
   updateCochoMapPosition,
   type CochoMapa,
 } from '../services/map/OperationalMapService'
-import {
-  calcularCentroFeature,
-  formatarHectares,
-} from '../features/mapa/mapGeometry'
-import MapPastoLabel from '../features/mapa/MapPastoLabel'
+import { formatarHectares } from '../features/mapa/mapGeometry'
 import { findAreaContainingPoint } from '../features/mapa/mapSpatial'
-import { getAreaStyle, getCorArea } from '../features/mapa/mapTheme'
+import { getCorArea } from '../features/mapa/mapTheme'
+import MapViewer, { type MapBaseLayer } from '../components/map/MapViewer'
+import MapToolbar from '../components/map/MapToolbar'
+import MapLayers from '../components/map/MapLayers'
+import MapRegions from '../components/map/MapRegions'
+import MapMarkers from '../components/map/MapMarkers'
+import MapEditor from '../components/map/MapEditor'
+import MapLegend from '../components/map/MapLegend'
+import LoadingMap from '../components/map/LoadingMap'
+import {
+  EMPTY_GEOJSON,
+  mapAreasToFeatureCollection,
+} from '../services/map/geojson'
 
 type Periodo = 'hoje' | '7d' | '30d' | 'todos'
 type StatusFiltro = 'todos' | 'ok' | 'atencao' | 'atrasado' | 'sem_registro'
 type PainelAtivo = 'cochos' | 'lotes' | 'rota'
-type BaseMapa = 'satelite' | 'osm'
 
 type StatusCocho = {
   id: string
@@ -74,129 +66,6 @@ type StatusCocho = {
 type PontoMapa = Abastecimento & {
   lat: number
   lng: number
-}
-
-const EMPTY_GEOJSON: GeoJsonFeatureCollection = {
-  type: 'FeatureCollection',
-  features: [],
-}
-
-delete (L.Icon.Default.prototype as any)._getIconUrl
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function buildPinIcon(params: {
-  label: string
-  color: string
-  shape?: 'round' | 'square'
-}) {
-  const radius = params.shape === 'square' ? '10px' : '999px'
-
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width: 34px;
-        height: 34px;
-        border-radius: ${radius};
-        background: ${params.color};
-        border: 3px solid #fff;
-        box-shadow: 0 10px 24px rgba(15,23,42,0.28);
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font: 800 12px Arial, sans-serif;
-      ">${escapeHtml(params.label)}</div>
-    `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -17],
-  })
-}
-
-function FitOperationalBounds({
-  centro,
-  geojson,
-}: {
-  centro: [number, number]
-  geojson: GeoJsonFeatureCollection
-}) {
-  const map = useMap()
-
-  useEffect(() => {
-    map.setMinZoom(10)
-    map.setMaxZoom(17)
-
-    const layer = geojson.features.length ? L.geoJSON(geojson as any) : null
-    const bounds = layer?.getBounds()
-
-    if (bounds?.isValid()) {
-      map.fitBounds(bounds, {
-        padding: [56, 56],
-        maxZoom: 15,
-      })
-      return
-    }
-
-    map.setView(centro, 14)
-  }, [centro, geojson, map])
-
-  return null
-}
-
-function ZoomControls() {
-  const map = useMap()
-
-  return (
-    <div className="absolute left-4 top-20 z-[1200] flex flex-col overflow-hidden rounded-lg border border-white/20 bg-white/95 shadow-xl">
-      <button
-        type="button"
-        onClick={() => map.zoomIn()}
-        className="h-10 w-10 text-lg font-bold text-ink-primary hover:bg-green/10"
-      >
-        +
-      </button>
-      <button
-        type="button"
-        onClick={() => map.zoomOut()}
-        className="h-10 w-10 border-t border-border text-lg font-bold text-ink-primary hover:bg-green/10"
-      >
-        -
-      </button>
-    </div>
-  )
-}
-
-function ClickToPlaceItem({
-  enabled,
-  onPlace,
-}: {
-  enabled: boolean
-  onPlace: (point: [number, number]) => void
-}) {
-  useMapEvents({
-    click(event) {
-      if (!enabled) return
-      onPlace([event.latlng.lat, event.latlng.lng])
-    },
-  })
-
-  return null
 }
 
 function getInicioPeriodo(periodo: Periodo) {
@@ -230,32 +99,6 @@ function fmtDateTime(iso: string) {
   })
 }
 
-function statusBadge(status: StatusCocho['status_operacional']) {
-  if (status === 'ok') return 'ok'
-  if (status === 'atencao' || status === 'sem_registro') return 'warn'
-  return 'err'
-}
-
-function statusColor(status: StatusCocho['status_operacional']) {
-  if (status === 'ok') return '#22c55e'
-  if (status === 'atrasado') return '#ef4444'
-  return '#f59e0b'
-}
-
-function areaFeature(area: MapArea) {
-  return {
-    ...(area.geojson ?? {}),
-    type: 'Feature',
-    properties: {
-      ...(area.geojson?.properties ?? {}),
-      area_id: area.id,
-      nome: area.nome,
-      tipo: area.tipo,
-      cor: area.cor,
-    },
-  }
-}
-
 export default function MapaOperacionalPage() {
   const [periodo, setPeriodo] = useState<Periodo>('7d')
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
@@ -285,7 +128,7 @@ export default function MapaOperacionalPage() {
   const [showCochos, setShowCochos] = useState(true)
   const [showLotes, setShowLotes] = useState(true)
   const [showRota, setShowRota] = useState(false)
-  const [baseMapa, setBaseMapa] = useState<BaseMapa>('satelite')
+  const [baseMapa, setBaseMapa] = useState<MapBaseLayer>('satelite')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const fazendaCentro = useMemo<[number, number]>(() => {
@@ -297,10 +140,7 @@ export default function MapaOperacionalPage() {
   }, [fazendaAtual])
 
   const areasGeojson = useMemo<GeoJsonFeatureCollection>(() => {
-    return {
-      type: 'FeatureCollection',
-      features: areas.map(areaFeature),
-    }
+    return mapAreasToFeatureCollection(areas)
   }, [areas])
 
   const pontos = useMemo<PontoMapa[]>(() => {
@@ -377,7 +217,7 @@ export default function MapaOperacionalPage() {
         return
       }
 
-      const mapaAtivo = await getActiveFarmMap({
+      const mapaAtivo = await buscarMapaAtivoDaFazenda({
         empresaId: fazenda.empresa_id,
         fazendaId: fazenda.id,
       })
@@ -415,7 +255,7 @@ export default function MapaOperacionalPage() {
         { data: registrosData, error: registrosError },
         { data: statusData },
       ] = await Promise.all([
-        loadFarmMapGeoJson(mapaAtivo),
+        buscarGeoJsonDoMapa(mapaAtivo),
         listMapAreas({
           mapId: mapaAtivo.id,
           empresaId: fazenda.empresa_id,
@@ -735,190 +575,47 @@ export default function MapaOperacionalPage() {
 
   return (
     <div className="relative h-full min-h-[680px] overflow-hidden bg-slate-950">
-      <MapContainer
+      <MapViewer
         center={fazendaCentro}
-        zoom={14}
-        minZoom={10}
-        maxZoom={17}
-        zoomControl={false}
-        scrollWheelZoom
-        className="h-full w-full"
+        fitGeojson={areas.length > 0 ? areasGeojson : geojsonFazenda}
+        baseLayer={baseMapa}
       >
-        <FitOperationalBounds
-          centro={fazendaCentro}
-          geojson={areas.length > 0 ? areasGeojson : geojsonFazenda}
+        <MapRegions
+          mapId={mapaFazenda?.id}
+          mapGeojson={geojsonFazenda}
+          areas={areas}
+          areasGeojson={areasGeojson}
+          showAreas={showAreas}
+          showLabels={showLabels}
         />
 
-        {baseMapa === 'satelite' ? (
-          <TileLayer
-            attribution="Tiles Esri"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={17}
-            maxNativeZoom={17}
-          />
-        ) : (
-          <TileLayer
-            attribution="OpenStreetMap"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maxZoom={17}
-            maxNativeZoom={17}
-          />
-        )}
+        <MapMarkers
+          cochos={cochosComPosicao}
+          lotes={lotesComPasto}
+          areasPorId={areasPorId}
+          route={rota}
+          showCochos={showCochos}
+          showLotes={showLotes}
+          showRoute={showRota}
+          getStatusCocho={getStatusCocho}
+          onCochoDragged={(cochoId, point) => {
+            void posicionarCocho(cochoId, point)
+          }}
+          onLoteDragged={(lote, point) => {
+            void moverLote(lote, point)
+          }}
+          onLancarAbastecimento={(cocho) => {
+            void lancarAbastecimentoCocho(cocho)
+          }}
+          onEditarCocho={(cocho) => {
+            void editarCochoRapido(cocho)
+          }}
+          onRetirarCocho={(cocho) => {
+            void retirarPinCocho(cocho)
+          }}
+        />
 
-        {showAreas &&
-          areas.length === 0 &&
-          geojsonFazenda.features.length > 0 && (
-            <GeoJSON
-              key={`kmz-fallback-${mapaFazenda?.id ?? 'mapa'}-${geojsonFazenda.features.length}`}
-              data={geojsonFazenda as any}
-              style={(feature) => ({
-                ...getAreaStyle(feature),
-                weight: 2,
-                opacity: 0.9,
-                fillOpacity: 0.12,
-              })}
-            />
-          )}
-
-        {showAreas &&
-          areas.map((area) => {
-            const feature = areaFeature(area)
-
-            return (
-              <GeoJSON
-                key={`${area.id}-${area.updated_at ?? ''}`}
-                data={feature as any}
-                style={() => ({
-                  ...getAreaStyle(feature),
-                  color: area.cor || getCorArea(feature),
-                  fillColor: area.cor || getCorArea(feature),
-                  weight: area.tipo === 'fazenda' ? 3 : 2,
-                  fillOpacity: area.tipo === 'fazenda' ? 0.06 : 0.16,
-                })}
-              />
-            )
-          })}
-
-        {showLabels &&
-          showAreas &&
-          areasGeojson.features.map((feature, index) => (
-            <MapPastoLabel key={`label-${index}`} feature={feature} index={index} />
-          ))}
-
-        {showRota && rota.length > 1 && (
-          <Polyline
-            positions={rota}
-            pathOptions={{ color: '#4ade80', weight: 3, opacity: 0.78 }}
-          />
-        )}
-
-        {showCochos &&
-          cochosComPosicao.map((cocho, index) => {
-            const status = getStatusCocho(cocho.id)
-
-            return (
-              <Marker
-                key={`${cocho.id}-${cocho.latitude}-${cocho.longitude}`}
-                position={[Number(cocho.latitude), Number(cocho.longitude)]}
-                icon={buildPinIcon({
-                  label: String(index + 1),
-                  color: statusColor(status),
-                  shape: 'round',
-                })}
-                draggable
-                eventHandlers={{
-                  dragend: (event: LeafletEvent) => {
-                    const marker = event.target as L.Marker
-                    const point = marker.getLatLng()
-                    void posicionarCocho(cocho.id, [point.lat, point.lng])
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[220px]">
-                    <p className="font-semibold text-ink-primary">{cocho.nome}</p>
-                    <p className="mt-1 font-mono text-xs text-ink-muted">
-                      {cocho.codigo_qr}
-                    </p>
-                    <div className="my-3">
-                      <StatusBadge status={statusBadge(status)}>
-                        {status.toUpperCase()}
-                      </StatusBadge>
-                    </div>
-                    <p className="text-xs text-ink-muted">
-                      Pasto: {areasPorId.get(cocho.map_area_id ?? '')?.nome ?? 'Nao identificado'}
-                    </p>
-
-                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
-                      <button
-                        type="button"
-                        onClick={() => void lancarAbastecimentoCocho(cocho)}
-                        className="rounded-md bg-green px-2 py-2 text-xs font-semibold text-white"
-                      >
-                        Lancar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void editarCochoRapido(cocho)}
-                        className="rounded-md border border-border px-2 py-2 text-xs font-semibold text-ink-secondary"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void retirarPinCocho(cocho)}
-                        className="rounded-md border border-red/30 px-2 py-2 text-xs font-semibold text-red"
-                      >
-                        Retirar
-                      </button>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            )
-          })}
-
-        {showLotes &&
-          lotesComPasto.map((lote, index) => {
-            const area = areasPorId.get(lote.map_area_id ?? '')
-            const center = area ? calcularCentroFeature(areaFeature(area)) : null
-
-            if (!area || !center) return null
-
-            return (
-              <Marker
-                key={`${lote.id}-${lote.map_area_id}`}
-                position={center}
-                icon={buildPinIcon({
-                  label: `L${index + 1}`,
-                  color: '#7c3aed',
-                  shape: 'square',
-                })}
-                draggable
-                eventHandlers={{
-                  dragend: (event: LeafletEvent) => {
-                    const marker = event.target as L.Marker
-                    const point = marker.getLatLng()
-                    void moverLote(lote, [point.lat, point.lng])
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[220px]">
-                    <p className="font-semibold text-ink-primary">{lote.nome}</p>
-                    <p className="mt-1 text-xs text-ink-muted">
-                      {lote.quantidade_animais ?? 0} cabecas
-                    </p>
-                    <p className="mt-2 text-xs text-ink-muted">
-                      Pasto atual: {area.nome}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            )
-          })}
-
-        <ClickToPlaceItem
+        <MapEditor
           enabled={Boolean(cochoParaPosicionar || loteParaPosicionar)}
           onPlace={(point) => {
             if (cochoParaPosicionar) {
@@ -936,88 +633,73 @@ export default function MapaOperacionalPage() {
           }}
         />
 
-        <ZoomControls />
-      </MapContainer>
+        <MapLegend />
+      </MapViewer>
 
-      <div className="absolute inset-x-4 top-4 z-[1200] flex items-start justify-between gap-3 pointer-events-none">
-        <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1.5 rounded-lg border border-white/20 bg-white/95 p-1.5 shadow-xl backdrop-blur">
-          <select
-            value={fazendaSelecionadaId}
-            onChange={(event) => setFazendaSelecionadaId(event.target.value)}
-            className="input h-9 w-[160px] min-w-0 truncate py-1.5"
-          >
-            {fazendas.map((fazenda) => (
-              <option key={fazenda.id} value={fazenda.id}>
-                {fazenda.nome}
-              </option>
-            ))}
-          </select>
+      <MapToolbar
+        fazendas={fazendas}
+        fazendaSelecionadaId={fazendaSelecionadaId}
+        periodo={periodo}
+        periodos={['hoje', '7d', '30d', 'todos']}
+        loading={loading}
+        onFazendaChange={setFazendaSelecionadaId}
+        onPeriodoChange={setPeriodo}
+        onRefresh={load}
+        formatPeriodo={(item) =>
+          item === 'hoje' ? 'Hoje' : item === 'todos' ? 'Tudo' : item
+        }
+        metrics={
+          <div className="pointer-events-auto hidden items-center gap-2 2xl:flex">
+            <Metric title="Cochos" value={cochos.length} icon={Box} />
+            <Metric title="Lotes" value={lotes.length} icon={Beef} />
+            <Metric title="Pastos" value={areas.length} icon={Layers} />
+            <Metric
+              title="Alertas"
+              value={cochos.filter((c) => getStatusCocho(c.id) !== 'ok').length}
+              icon={AlertTriangle}
+            />
+          </div>
+        }
+      />
 
-          {(['hoje', '7d', '30d', 'todos'] as Periodo[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setPeriodo(item)}
-              className={`h-9 rounded-md px-2.5 text-xs font-bold ${
-                periodo === item
-                  ? 'bg-green text-white'
-                  : 'text-ink-secondary hover:bg-green/10'
-              }`}
-            >
-              {item === 'hoje' ? 'Hoje' : item === 'todos' ? 'Tudo' : item}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="h-9 rounded-md px-2.5 text-xs font-bold text-ink-secondary hover:bg-green/10 disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-
-        <div className="pointer-events-auto hidden items-center gap-2 2xl:flex">
-          <Metric title="Cochos" value={cochos.length} icon={Box} />
-          <Metric title="Lotes" value={lotes.length} icon={Beef} />
-          <Metric title="Pastos" value={areas.length} icon={Layers} />
-          <Metric title="Alertas" value={cochos.filter((c) => getStatusCocho(c.id) !== 'ok').length} icon={AlertTriangle} />
-        </div>
-      </div>
-
-      <div className="absolute bottom-4 left-4 z-[1200] flex max-w-[calc(100%-2rem)] flex-wrap gap-2 rounded-lg border border-white/20 bg-white/95 p-2 shadow-xl backdrop-blur">
-        {[
-          { label: 'Pastos', active: showAreas, onClick: () => setShowAreas((v) => !v) },
-          { label: 'Rotulos', active: showLabels, onClick: () => setShowLabels((v) => !v) },
-          { label: 'Cochos', active: showCochos, onClick: () => setShowCochos((v) => !v) },
-          { label: 'Lotes', active: showLotes, onClick: () => setShowLotes((v) => !v) },
-          { label: 'Rota', active: showRota, onClick: () => setShowRota((v) => !v) },
-        ].map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={item.onClick}
-            className={`h-9 rounded-md px-3 text-xs font-bold ${
-              item.active ? 'bg-green/10 text-green' : 'text-ink-muted hover:bg-surface'
-            }`}
-          >
-            {item.active ? <Eye size={13} className="mr-1 inline" /> : <EyeOff size={13} className="mr-1 inline" />}
-            {item.label}
-          </button>
-        ))}
-
-        <div className="h-9 w-px bg-border" />
-
-        <button
-          type="button"
-          onClick={() => setBaseMapa((value) => (value === 'satelite' ? 'osm' : 'satelite'))}
-          className="h-9 rounded-md px-3 text-xs font-bold text-ink-secondary hover:bg-green/10"
-        >
-          <Satellite size={13} className="mr-1 inline" />
-          {baseMapa === 'satelite' ? 'Satelite' : 'Ruas'}
-        </button>
-      </div>
+      <MapLayers
+        baseLayer={baseMapa}
+        onToggleBaseLayer={() =>
+          setBaseMapa((value) => (value === 'satelite' ? 'osm' : 'satelite'))
+        }
+        layers={[
+          {
+            id: 'pastos',
+            label: 'Pastos',
+            active: showAreas,
+            onToggle: () => setShowAreas((value) => !value),
+          },
+          {
+            id: 'rotulos',
+            label: 'Rotulos',
+            active: showLabels,
+            onToggle: () => setShowLabels((value) => !value),
+          },
+          {
+            id: 'cochos',
+            label: 'Cochos',
+            active: showCochos,
+            onToggle: () => setShowCochos((value) => !value),
+          },
+          {
+            id: 'lotes',
+            label: 'Lotes',
+            active: showLotes,
+            onToggle: () => setShowLotes((value) => !value),
+          },
+          {
+            id: 'rota',
+            label: 'Rota',
+            active: showRota,
+            onToggle: () => setShowRota((value) => !value),
+          },
+        ]}
+      />
 
       {(cochoParaPosicionar || loteParaPosicionar) && (
         <div className="absolute left-1/2 top-20 z-[1210] w-[330px] -translate-x-1/2 rounded-lg border border-green/30 bg-white/95 p-3 text-sm shadow-xl backdrop-blur">
@@ -1050,13 +732,7 @@ export default function MapaOperacionalPage() {
         </div>
       )}
 
-      {loading && (
-        <div className="absolute inset-0 z-[1300] flex items-center justify-center bg-slate-950/30 backdrop-blur-[1px]">
-          <div className="rounded-lg border border-white/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink-primary shadow-xl">
-            Carregando mapa operacional...
-          </div>
-        </div>
-      )}
+      {loading && <LoadingMap />}
 
       {errorMessage && (
         <div className="absolute left-4 right-4 top-20 z-[1220] rounded-lg border border-red/30 bg-white/95 p-3 text-sm font-semibold text-red shadow-xl">

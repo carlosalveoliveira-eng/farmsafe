@@ -1,78 +1,127 @@
-import { useEffect } from "react";
-import L from "leaflet";
-import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import type { GeoJsonFeatureCollection } from "../../types/map";
+import { useEffect, type ReactNode } from 'react'
+import L from 'leaflet'
+import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 
-type Props = {
-  geojson: GeoJsonFeatureCollection;
-  center?: [number, number];
-  height?: number | string;
-};
+import type { GeoJsonFeatureCollection } from '../../types/map'
 
-function FitBounds({ geojson }: { geojson: GeoJsonFeatureCollection }) {
-  const map = useMap();
+export type MapBaseLayer = 'satelite' | 'osm'
+
+type MapViewerProps = {
+  center: [number, number]
+  fitGeojson?: GeoJsonFeatureCollection
+  baseLayer?: MapBaseLayer
+  minZoom?: number
+  maxZoom?: number
+  initialZoom?: number
+  className?: string
+  children?: ReactNode
+}
+
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
+  ._getIconUrl
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+function FitBounds({
+  center,
+  geojson,
+  maxZoom,
+}: {
+  center: [number, number]
+  geojson?: GeoJsonFeatureCollection
+  maxZoom: number
+}) {
+  const map = useMap()
 
   useEffect(() => {
-    if (!geojson.features.length) return;
+    const layer = geojson?.features.length ? L.geoJSON(geojson as never) : null
+    const bounds = layer?.getBounds()
 
-    const layer = L.geoJSON(geojson as any);
-    const bounds = layer.getBounds();
-
-    if (bounds.isValid()) {
+    if (bounds?.isValid()) {
       map.fitBounds(bounds, {
-        padding: [24, 24],
-        maxZoom: 17,
-      });
+        padding: [56, 56],
+        maxZoom: Math.min(maxZoom, 15),
+      })
+      return
     }
-  }, [geojson, map]);
 
-  return null;
+    map.setView(center, Math.min(maxZoom, 14))
+  }, [center, geojson, map, maxZoom])
+
+  return null
+}
+
+function ZoomControls() {
+  const map = useMap()
+
+  return (
+    <div className="absolute left-4 top-20 z-[1200] flex flex-col overflow-hidden rounded-lg border border-white/20 bg-white/95 shadow-xl">
+      <button
+        type="button"
+        aria-label="Aumentar zoom"
+        onClick={() => map.zoomIn()}
+        className="h-10 w-10 text-lg font-bold text-ink-primary hover:bg-green/10"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        aria-label="Diminuir zoom"
+        onClick={() => map.zoomOut()}
+        className="h-10 w-10 border-t border-border text-lg font-bold text-ink-primary hover:bg-green/10"
+      >
+        -
+      </button>
+    </div>
+  )
 }
 
 export default function MapViewer({
-  geojson,
-  center = [-15.77972, -47.92972],
-  height = 520,
-}: Props) {
+  center,
+  fitGeojson,
+  baseLayer = 'satelite',
+  minZoom = 10,
+  maxZoom = 17,
+  initialZoom = 14,
+  className = 'h-full w-full',
+  children,
+}: MapViewerProps) {
   return (
-    <div
-      style={{
-        height,
-        width: "100%",
-        borderRadius: 12,
-        overflow: "hidden",
-        border: "1px solid #e2e8f0",
-        background: "#f8fafc",
-      }}
+    <MapContainer
+      center={center}
+      zoom={initialZoom}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      zoomControl={false}
+      scrollWheelZoom
+      className={className}
     >
-      <MapContainer
-        center={center}
-        zoom={13}
-        style={{
-          height: "100%",
-          width: "100%",
-        }}
-        scrollWheelZoom
-      >
+      <FitBounds center={center} geojson={fitGeojson} maxZoom={maxZoom} />
+
+      {baseLayer === 'satelite' ? (
         <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
+          attribution="Tiles Esri"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={maxZoom}
+          maxNativeZoom={maxZoom}
+        />
+      ) : (
+        <TileLayer
+          attribution="OpenStreetMap"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={maxZoom}
+          maxNativeZoom={maxZoom}
         />
+      )}
 
-        <GeoJSON
-          key={JSON.stringify(geojson).length}
-          data={geojson as any}
-          style={() => ({
-            color: "#16a34a",
-            weight: 3,
-            fillColor: "#22c55e",
-            fillOpacity: 0.18,
-          })}
-        />
-
-        <FitBounds geojson={geojson} />
-      </MapContainer>
-    </div>
-  );
+      {children}
+      <ZoomControls />
+    </MapContainer>
+  )
 }

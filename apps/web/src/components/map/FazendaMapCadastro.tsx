@@ -4,9 +4,9 @@ import { Layers, MapPinned } from 'lucide-react'
 import type { Fazenda } from '../../services/supabase'
 import type { FarmMap, GeoJsonFeatureCollection } from '../../types/map'
 import {
-  getActiveFarmMap,
-  loadFarmMapGeoJson,
-} from '../../services/map/MapService'
+  buscarGeoJsonDoMapa,
+  buscarMapaAtivoDaFazenda,
+} from '../../services/map/maps'
 import {
   buildAreaFromFeature,
   createMapArea,
@@ -39,7 +39,7 @@ export default function FazendaMapCadastro({ fazenda }: Props) {
       setErrorMessage(null)
 
       try {
-        const activeMap = await getActiveFarmMap({
+        const activeMap = await buscarMapaAtivoDaFazenda({
           empresaId: fazenda.empresa_id,
           fazendaId: fazenda.id,
         })
@@ -54,7 +54,7 @@ export default function FazendaMapCadastro({ fazenda }: Props) {
         }
 
         const [geojson, mapAreas] = await Promise.all([
-          loadFarmMapGeoJson(activeMap),
+          buscarGeoJsonDoMapa(activeMap),
           listMapAreas({
             mapId: activeMap.id,
             empresaId: fazenda.empresa_id,
@@ -130,7 +130,7 @@ export default function FazendaMapCadastro({ fazenda }: Props) {
     if (!mapa) return
 
     try {
-      const geojson = await loadFarmMapGeoJson(mapa)
+      const geojson = await buscarGeoJsonDoMapa(mapa)
       await prepararAreas({ map: mapa, geojson })
     } catch (error) {
       setErrorMessage(
